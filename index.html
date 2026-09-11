@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نظام صيدلية الجبلي للتأمين الطبي v2.5</title>
+  <title>نظام صيدلية الجبلي للتأمين الطبي v3.6</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- مكتبة تحويل الـ PDF إلى صور داخل المتصفح -->
@@ -26,7 +26,7 @@
       <div class="bg-blue-600 p-2 rounded-lg text-white"><i class="fa-solid fa-prescription-bottle-medical text-xl"></i></div>
       <div>
         <h1 class="font-bold text-base leading-tight">صيدلية الجبلي</h1>
-        <p class="text-xs text-slate-400">نظام التأمين الطبي v2.5 (مستقل)</p>
+        <p class="text-xs text-slate-400">نظام التأمين الطبي v3.6</p>
       </div>
     </div>
 
@@ -117,7 +117,8 @@
           <div>
             <label class="block text-xs font-medium mb-1">إصدار الموديل (Model)</label>
             <select id="modelSelect" class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-blue-50 font-semibold text-blue-900">
-              <option value="gemini-2.5-flash" selected>gemini-2.5-flash</option>
+              <option value="gemini-3.6-flash" selected>gemini-3.6-flash</option>
+              <option value="gemini-2.5-flash">gemini-2.5-flash</option>
               <option value="gemini-2.0-flash">gemini-2.0-flash</option>
               <option value="gemini-1.5-flash">gemini-1.5-flash</option>
             </select>
@@ -356,7 +357,7 @@
     // =========================================================
     // إعدادات نموذج الذكاء الاصطناعي الافتراضي (Gemini Model Config)
     // =========================================================
-    const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+    const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
     const GEMINI_API_VERSION = 'v1beta';
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
