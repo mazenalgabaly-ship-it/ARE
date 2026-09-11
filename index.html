@@ -246,7 +246,8 @@
           <p class="text-sm text-slate-500">عرض، تعديل، حذف، أو إعادة طباعة أي فاتورة</p>
         </div>
         <div class="flex items-center gap-3">
-          <input type="text" id="searchRecordInput" onkeyup="filterRecords()" placeholder="بحث باسم المريض أو الكارنيه..." class="border border-slate-300 rounded-xl p-2 text-xs w-64">
+          <input type="text" id="searchRecordInput" onkeyup="filterRecords()" placeholder="بحث باسم المريض، الشركة أو الكارنيه..." class="border border-slate-300 rounded-xl p-2 text-xs w-64">
+          <button onclick="clearSearchFilter()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-3 rounded-xl text-xs">عرض الكل</button>
           <button onclick="exportRecordsToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-2">
             <i class="fa-solid fa-file-excel"></i> تصدير السجل إلى Excel
           </button>
@@ -279,7 +280,7 @@
       <div class="flex justify-between items-center">
         <div>
           <h2 class="text-2xl font-bold text-slate-800">التقارير الشهرية لشركات التأمين</h2>
-          <p class="text-sm text-slate-500">تجميع إجمالي المطالبات لكل شركة</p>
+          <p class="text-sm text-slate-500">اضغط على أي شركة للجلوب والتصفية المباشرة لجميع فواتيرها</p>
         </div>
         <button onclick="exportReportsToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-2">
           <i class="fa-solid fa-file-excel"></i> تصدير تقرير الشركات إلى Excel
@@ -554,7 +555,10 @@
           - ticketNo: رقم التذكرة أو المطالبة
           - cardNo: رقم الكارنيه
           - nationalId: الرقم القومي إن وجد
-          - isMonthly: true أو false (هل هي علاج شهري)
+          - claimDate: تاريخ الروشتة أو المطبوعة بتنسيق YYYY-MM-DD (إذا لم تجده، اترك القيمة فارغة)
+          - company: اختر بالضبط واحد من المسميات التالية بناءً على شعار أو اسم الشركة الموجود بالورقة: "MetLife" أو "MedRight" أو "AXA" (أو اترك القيمة فارغة إن لم تتعرف عليها)
+          - approvalNo: رقم الموافقة إن وجد (خاص بشركة ميدرايت / MedRight)
+          - isMonthly: true أو false (هل مكتوب عليها علاج شهري أو مكرر)
           - medicines: مصفوفة تحتوي على (name, qty, price) لكل دواء.
 
           تنبيه هام: يجب أن تكون الإجابة عبارة عن نص JSON فقط بدون أي مقدمات أو مؤخرات أو علامات markdown.
@@ -564,6 +568,9 @@
             "ticketNo": "12345",
             "cardNo": "98765",
             "nationalId": "",
+            "claimDate": "2026-09-11",
+            "company": "MetLife",
+            "approvalNo": "",
             "isMonthly": false,
             "medicines": [
               {"name": "Panadol", "qty": 1, "price": 20.0}
@@ -609,6 +616,21 @@
         if (parsed.ticketNo) document.getElementById('ticketNo').value = parsed.ticketNo;
         if (parsed.cardNo) document.getElementById('cardNo').value = parsed.cardNo;
         if (parsed.nationalId) document.getElementById('nationalId').value = parsed.nationalId;
+        if (parsed.claimDate) document.getElementById('claimDate').value = parsed.claimDate;
+        if (parsed.approvalNo) document.getElementById('approvalNo').value = parsed.approvalNo;
+
+        if (parsed.company) {
+          const compSelect = document.getElementById('companySelect');
+          const matchedOption = Array.from(compSelect.options).find(opt => 
+            opt.value.toLowerCase() === parsed.company.toLowerCase() || 
+            opt.text.toLowerCase().includes(parsed.company.toLowerCase())
+          );
+          if (matchedOption) {
+            compSelect.value = matchedOption.value;
+            toggleMedrightFields();
+          }
+        }
+
         if (parsed.isMonthly !== undefined) document.getElementById('isMonthly').checked = parsed.isMonthly;
 
         document.getElementById('medicinesTableBody').innerHTML = '';
@@ -704,6 +726,7 @@
         `;
         tbody.appendChild(tr);
       });
+      filterRecords();
     }
 
     function filterRecords() {
@@ -713,6 +736,17 @@
         const text = row.innerText.toLowerCase();
         row.style.display = text.includes(q) ? '' : 'none';
       });
+    }
+
+    function clearSearchFilter() {
+      document.getElementById('searchRecordInput').value = '';
+      filterRecords();
+    }
+
+    function filterRecordsByCompany(companyName) {
+      switchTab('records');
+      document.getElementById('searchRecordInput').value = companyName;
+      filterRecords();
     }
 
     function editRecord(id) {
@@ -904,16 +938,21 @@
         const totalPat = compInvoices.reduce((sum, i) => sum + (i.patientPaid || 0), 0);
 
         const card = document.createElement('div');
-        card.className = 'bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3';
+        card.className = 'bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3 cursor-pointer hover:border-blue-500 hover:shadow-md transition group';
+        card.onclick = () => filterRecordsByCompany(comp);
         card.innerHTML = `
           <div class="flex justify-between items-center border-b pb-3">
-            <h3 class="font-bold text-lg text-slate-800">${comp}</h3>
+            <h3 class="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition">${comp}</h3>
             <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-1 rounded-full">${compInvoices.length} فاتورة</span>
           </div>
           <div class="space-y-1 text-sm">
             <div class="flex justify-between text-slate-600"><span>مطالبة الشركة:</span> <strong class="text-blue-600">${totalComp.toFixed(2)} ج.م</strong></div>
             <div class="flex justify-between text-slate-600"><span>مدفوعات المرضى:</span> <strong class="text-emerald-600">${totalPat.toFixed(2)} ج.م</strong></div>
             <div class="flex justify-between text-slate-600"><span>الإجمالي العام:</span> <strong>${(totalComp + totalPat).toFixed(2)} ج.م</strong></div>
+          </div>
+          <div class="text-xs text-blue-600 font-bold pt-2 flex items-center justify-between border-t border-slate-100">
+            <span>عرض كل فواتير ${comp}</span>
+            <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
           </div>
         `;
         grid.appendChild(card);
