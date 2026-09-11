@@ -12,8 +12,17 @@
   <style>
     @media print {
       body * { visibility: hidden; }
-      #printableInvoice, #printableInvoice * { visibility: visible; }
-      #printableInvoice { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+      #printableInvoice, #printableInvoice * { 
+        visibility: visible; 
+      }
+      #printableInvoice { 
+        display: block !important; /* إلغاء الإخفاء أثناء الطباعة */
+        position: absolute; 
+        left: 0; 
+        top: 0; 
+        width: 100%; 
+        padding: 20px; 
+      }
       .no-print { display: none !important; }
     }
   </style>
@@ -517,7 +526,7 @@
       const btnText = document.getElementById('btnText');
 
       if (!apiKey) {
-        alert('يرجى إدخال Gemini API Key أولاً!');
+        alert('يرجى إدخل Gemini API Key أولاً!');
         return;
       }
       if (!fileInput.files[0]) {
