@@ -6,6 +6,8 @@
   <title>نظام صيدلية الجبلي للتأمين الطبي v2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- مكتبة تحويل الـ PDF إلى صور داخل المتصفح -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     @media print {
@@ -117,8 +119,9 @@
             <input type="password" id="apiKeyInput" placeholder="أدخل المفتاح هنا..." class="w-full border border-slate-300 rounded-lg p-2 text-sm">
           </div>
           <div>
-            <label class="block text-xs font-medium mb-1">ملف الروشتة (صورة)</label>
-            <input type="file" id="pdfFileInput" accept="image/*" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
+            <label class="block text-xs font-medium mb-1">ملف الروشتة (صورة أو PDF)</label>
+            <!-- تم تعديل accept ليدعم PDF والصور معاً -->
+            <input type="file" id="pdfFileInput" accept="image/*,application/pdf" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
           </div>
           <div class="flex items-end">
             <button onclick="processPDFWithAI()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm flex items-center justify-center gap-2">
@@ -343,7 +346,9 @@
   </section>
 
   <script>
-    // تم تغيير مفاتيح LocalStorage لتكون v2 لضمان استقلالية الموقع تماماً
+    // إعداد مكتبة PDF.js
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
     let invoices = JSON.parse(localStorage.getItem('pharmacy_invoices_v2')) || [];
     let settings = JSON.parse(localStorage.getItem('pharmacy_settings_v2')) || {
       pharmacyName: 'صيدلية الجبلي',
@@ -355,7 +360,6 @@
 
     let chartInstance = null;
 
-    // التنقل بين الصفحات
     function switchTab(tabName) {
       document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
       document.getElementById(`page-${tabName}`).classList.remove('hidden');
@@ -375,7 +379,6 @@
       if(tabName === 'reports') renderReports();
     }
 
-    // إضافة صف دواء جديد
     function addMedicineRow(name = '', qty = 1, price = 0) {
       const tbody = document.getElementById('medicinesTableBody');
       const tr = document.createElement('tr');
@@ -421,26 +424,57 @@
       document.getElementById('companyPaid').value = companyPay.toFixed(2);
     }
 
-    // قراءة الصورة مع الذكاء الاصطناعي (Gemini AI)
+    // دالة تحويل PDF إلى صورة PNG Base64
+    async function convertPdfToImageBase64(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const page = await pdf.getPage(1); // استخدام الصفحة الأولى
+      const viewport = page.getViewport({ scale: 2.0 });
+
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      await page.render({ canvasContext: context, viewport: viewport }).promise;
+      return canvas.toDataURL('image/png').split(',')[1];
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = error => reject(error);
+      });
+    }
+
+    // المعالجة بالذكاء الاصطناعي (تدعم الصور و PDF)
     async function processPDFWithAI() {
       const apiKey = document.getElementById('apiKeyInput').value || settings.apiKey;
       const fileInput = document.getElementById('pdfFileInput');
       const btnText = document.getElementById('btnText');
 
       if (!apiKey) {
-        alert('يرجى إدخال Gemini API Key أولاً!');
+        alert('يرجى إدخل Gemini API Key أولاً!');
         return;
       }
       if (!fileInput.files[0]) {
-        alert('يرجى اختيار صورة الروشتة!');
+        alert('يرجى اختيار صورة أو ملف PDF للروشتة!');
         return;
       }
 
-      btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحليل...';
+      btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحليل والمعالجة...';
 
       try {
         const file = fileInput.files[0];
-        const base64Data = await fileToBase64(file);
+        let base64Data = '';
+
+        if (file.type === 'application/pdf') {
+          base64Data = await convertPdfToImageBase64(file);
+        } else {
+          base64Data = await fileToBase64(file);
+        }
 
         const promptText = `
           أنت مساعد صيدلي خبير. استخرج البيانات التالية من صورة الروشتة أو المطالبة:
@@ -471,7 +505,7 @@
             contents: [{
               parts: [
                 { text: promptText },
-                { inline_data: { mime_type: file.type, data: base64Data } }
+                { inline_data: { mime_type: 'image/png', data: base64Data } }
               ]
             }]
           })
@@ -493,25 +527,15 @@
           parsed.medicines.forEach(m => addMedicineRow(m.name, m.qty || 1, m.price || 0));
         }
 
-        alert('تم استخراج البيانات وتعبئة الجدول بنجاح!');
+        alert('تم قراءة الروشتة واستخراج البيانات بنجاح!');
       } catch (err) {
         console.error(err);
-        alert('حدث خطأ أثناء تحليل الصورة، يرجى التأكد من API Key وضغط الملف.');
+        alert('حدث خطأ أثناء معالجة الملف، تأكد من صحة المفتاح وحجم الملف.');
       } finally {
         btnText.innerHTML = '<i class="fa-solid fa-brain"></i> استخراج البيانات بالذكاء الاصطناعي';
       }
     }
 
-    function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = error => reject(error);
-      });
-    }
-
-    // حفظ الفاتورة (إضافة أو تعديل في v2)
     function saveRecord() {
       const editingId = document.getElementById('editingId').value;
       const medicines = [];
@@ -564,7 +588,6 @@
       calculateInvoice();
     }
 
-    // عرض جدول الفواتير والتعديل/الحذف
     function renderRecordsTable() {
       const tbody = document.getElementById('fullRecordsTableBody');
       tbody.innerHTML = '';
@@ -631,7 +654,6 @@
       });
     }
 
-    // تقارير الشركات
     function renderReports() {
       const grid = document.getElementById('companyReportsGrid');
       grid.innerHTML = '';
@@ -655,7 +677,6 @@
       });
     }
 
-    // Dashboard
     function renderDashboard() {
       const totalComp = invoices.reduce((acc, i) => acc + i.companyPaid, 0);
       const totalPatient = invoices.reduce((acc, i) => acc + i.patientPaid, 0);
@@ -686,7 +707,6 @@
       });
     }
 
-    // الطباعة
     function printCurrentForm() {
       document.getElementById('invPharmName').innerText = settings.pharmacyName;
       document.getElementById('invPharmDetails').innerText = `${settings.address} | س.ت: ${settings.commReg} | ب.ض: ${settings.taxReg}`;
@@ -727,7 +747,6 @@
       window.print();
     }
 
-    // الإعدادات (v2)
     function saveSettings() {
       settings.pharmacyName = document.getElementById('settingPharmacyName').value;
       settings.address = document.getElementById('settingAddress').value;
@@ -755,7 +774,6 @@
       else document.getElementById('medrightApprovalDiv').classList.add('hidden');
     }
 
-    // التهيئة
     document.getElementById('claimDate').valueAsDate = new Date();
     loadSettings();
     renderDashboard();
