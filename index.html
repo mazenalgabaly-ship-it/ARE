@@ -152,32 +152,30 @@
         /* ------------------------------------------------------------- */
         /* قواعد طباعة التذكرة / الفاتورة (CSS for Print)               */
         /* ------------------------------------------------------------- */
-        #print-area {
-            display: none; /* إخفاء منطقة الطباعة في التصفح العادي */
+        @media screen {
+            #print-area {
+                display: none !important;
+            }
         }
 
         @media print {
-            /* إخفاء كل عناصر الواجهة العادية أثناء الطباعة */
-            body * {
-                visibility: hidden;
+            /* إخفاء الواجهة العادية بالكامل أثناء الطباعة */
+            .no-print {
+                display: none !important;
             }
 
-            /* إظهار منطقة الطباعة فقط ومحتوياتها */
-            #print-area, #print-area * {
-                visibility: visible;
-            }
-
+            /* إظهار منطقة الطباعة فقط على الورقة */
             #print-area {
                 display: block !important;
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                padding: 20px;
-                background: #fff;
-                color: #000;
-                font-family: 'Cairo', sans-serif;
-                direction: rtl;
+                width: 100% !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                margin: 0 !important;
+                padding: 15px !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+                direction: rtl !important;
             }
 
             .print-header {
@@ -189,7 +187,7 @@
 
             .print-header h2 {
                 margin: 0 0 5px 0;
-                font-size: 22px;
+                font-size: 20px;
             }
 
             .print-header p {
@@ -221,7 +219,7 @@
             }
 
             .print-totals {
-                width: 55%;
+                width: 50%;
                 margin-left: auto;
                 font-size: 13px;
             }
@@ -242,9 +240,9 @@
 
             .print-footer {
                 text-align: center;
-                margin-top: 30px;
+                margin-top: 25px;
                 font-size: 11px;
-                border-top: 1px solid #ddd;
+                border-top: 1px solid #ccc;
                 padding-top: 10px;
             }
         }
@@ -580,7 +578,6 @@
                 const file = fileInput.files[0];
                 const base64Data = await convertFileToBase64(file);
 
-                // استخدام الموديل الحديث المستقر
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
                 const promptText = `
@@ -617,13 +614,12 @@
 
                 statusDiv.innerText = '✅ تم استخراج البيانات بنجاح!';
 
-                // قراءة الرد وتحويله كأدوية داخل الجدول
                 const rawText = data.candidates[0].content.parts[0].text;
                 try {
                     const cleanJson = rawText.replace(/```json|```/g, '').trim();
                     const meds = JSON.parse(cleanJson);
                     
-                    document.getElementById('medsBody').innerHTML = ''; // تفريغ الجدول القديم
+                    document.getElementById('medsBody').innerHTML = '';
                     meds.forEach(med => {
                         addMedicineRow(med.name, med.qty || 1, med.price || 0);
                     });
@@ -637,7 +633,6 @@
             }
         }
 
-        // تحويل الملف إلى Base64
         function convertFileToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
