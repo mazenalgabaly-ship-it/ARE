@@ -358,6 +358,29 @@
 
     let chartInstance = null;
 
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('claimDate').valueAsDate = new Date();
+      document.getElementById('settingPharmacyName').value = settings.pharmacyName || '';
+      document.getElementById('settingAddress').value = settings.address || '';
+      document.getElementById('settingCommReg').value = settings.commReg || '';
+      document.getElementById('settingTaxReg').value = settings.taxReg || '';
+      document.getElementById('settingApiKey').value = settings.apiKey || '';
+      if(settings.apiKey) document.getElementById('apiKeyInput').value = settings.apiKey;
+      
+      toggleMedrightFields();
+      renderDashboard();
+    });
+
+    function toggleMedrightFields() {
+      const company = document.getElementById('companySelect').value;
+      const approvalDiv = document.getElementById('medrightApprovalDiv');
+      if (company === 'MedRight') {
+        approvalDiv.classList.remove('hidden');
+      } else {
+        approvalDiv.classList.add('hidden');
+      }
+    }
+
     function switchTab(tabName) {
       document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
       document.getElementById(`page-${tabName}`).classList.remove('hidden');
@@ -446,7 +469,7 @@
       });
     }
 
-    // الدالة المعدلة لمعالجة واستخراج الـ JSON مباشرة في الحقول
+    // الدالة المعدلة لمعالجة واستخراج الـ JSON مباشرة مع الموديل المعتمد
     async function processPDFWithAI() {
       const apiKey = document.getElementById('apiKeyInput').value || settings.apiKey;
       const fileInput = document.getElementById('pdfFileInput');
@@ -523,7 +546,6 @@
 
         let textResult = data.candidates[0].content.parts[0].text;
         
-        // استخراج نص الـ JSON بدقة لو الرد جاي جوه Markdown أو كلام جانبي
         const jsonMatch = textResult.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
           throw new Error("لم يتمكن النظام من قراءة تنسيق البيانات المرجعة.");
@@ -531,19 +553,17 @@
         
         const parsed = JSON.parse(jsonMatch[0]);
 
-        // تعبئة البيانات في الحقول
         if (parsed.patientName) document.getElementById('patientName').value = parsed.patientName;
         if (parsed.ticketNo) document.getElementById('ticketNo').value = parsed.ticketNo;
         if (parsed.cardNo) document.getElementById('cardNo').value = parsed.cardNo;
         if (parsed.nationalId) document.getElementById('nationalId').value = parsed.nationalId;
         if (parsed.isMonthly !== undefined) document.getElementById('isMonthly').checked = parsed.isMonthly;
 
-        // تعبئة جدول الأدوية وحساب المبالغ
         document.getElementById('medicinesTableBody').innerHTML = '';
         if (parsed.medicines && Array.isArray(parsed.medicines) && parsed.medicines.length > 0) {
           parsed.medicines.forEach(m => addMedicineRow(m.name || '', m.qty || 1, m.price || 0));
         } else {
-          addMedicineRow(); // إضافة صف فارغ لو مفيش أدوية اتعلمت
+          addMedicineRow();
         }
 
         recalculateOverallTotal();
@@ -595,7 +615,7 @@
       }
 
       localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
-      alert("تم حفظ الفاتورة بنجاح في قاعدة بيانات v2!");
+      alert("تم حفظ الفاتورة بنجاح في قاعدة البيانات v2!");
       resetForm();
       switchTab('records');
     }
@@ -649,17 +669,18 @@
       document.getElementById('isMonthly').checked = inv.isMonthly;
       document.getElementById('patientCopayPercent').value = inv.patientCopayPercent;
 
+      toggleMedrightFields();
+
       const tbody = document.getElementById('medicinesTableBody');
       tbody.innerHTML = '';
       if(inv.medicines) {
         inv.medicines.forEach(m => addMedicineRow(m.name, m.qty, m.price));
       }
-
       switchTab('newInvoice');
     }
 
     function deleteInvoice(id) {
-      if(confirm('هل أنت تأكد من حذف هذه الفاتورة نهائياً؟')) {
+      if(confirm('هل أنت تأكد من حذف هذه الفاتورة؟')) {
         invoices = invoices.filter(i => i.id !== id);
         localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
         renderRecordsTable();
@@ -667,60 +688,38 @@
     }
 
     function filterRecords() {
-      const q = document.getElementById('searchRecordInput').value.toLowerCase();
+      const query = document.getElementById('searchRecordInput').value.toLowerCase();
       const rows = document.querySelectorAll('#fullRecordsTableBody tr');
       rows.forEach(row => {
         const text = row.innerText.toLowerCase();
-        row.style.display = text.includes(q) ? '' : 'none';
-      });
-    }
-
-    function renderReports() {
-      const grid = document.getElementById('companyReportsGrid');
-      grid.innerHTML = '';
-
-      const companies = ['MetLife', 'MedRight', 'AXA'];
-      companies.forEach(comp => {
-        const compInvoices = invoices.filter(i => i.company === comp);
-        const totalComp = compInvoices.reduce((acc, i) => acc + i.companyPaid, 0);
-        const totalPatient = compInvoices.reduce((acc, i) => acc + i.patientPaid, 0);
-
-        grid.innerHTML += `
-          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <h3 class="text-lg font-bold text-slate-800 mb-2">${comp}</h3>
-            <div class="space-y-2 text-xs border-t pt-3">
-              <div class="flex justify-between"><span>عدد الفواتير:</span> <strong>${compInvoices.length}</strong></div>
-              <div class="flex justify-between"><span>مطلب الشركة الكلي:</span> <strong class="text-blue-600">${totalComp.toFixed(2)} ج.م</strong></div>
-              <div class="flex justify-between"><span>تحمل المرضى:</span> <strong class="text-emerald-600">${totalPatient.toFixed(2)} ج.م</strong></div>
-            </div>
-          </div>
-        `;
+        row.style.display = text.includes(query) ? '' : 'none';
       });
     }
 
     function renderDashboard() {
-      const totalComp = invoices.reduce((acc, i) => acc + i.companyPaid, 0);
-      const totalPatient = invoices.reduce((acc, i) => acc + i.patientPaid, 0);
+      const totalCompany = invoices.reduce((acc, cur) => acc + (cur.companyPaid || 0), 0);
+      const totalPatient = invoices.reduce((acc, cur) => acc + (cur.patientPaid || 0), 0);
       const monthlyCount = invoices.filter(i => i.isMonthly).length;
 
-      document.getElementById('dashTotalCompany').innerText = totalComp.toFixed(2) + ' ج.م';
+      document.getElementById('dashTotalCompany').innerText = totalCompany.toFixed(2) + ' ج.م';
       document.getElementById('dashTotalPatient').innerText = totalPatient.toFixed(2) + ' ج.م';
       document.getElementById('dashCount').innerText = invoices.length;
       document.getElementById('dashMonthlyCount').innerText = monthlyCount;
 
+      const companyData = {};
+      invoices.forEach(i => {
+        companyData[i.company] = (companyData[i.company] || 0) + i.companyPaid;
+      });
+
       const ctx = document.getElementById('companyChart').getContext('2d');
       if(chartInstance) chartInstance.destroy();
-
-      const companies = ['MetLife', 'MedRight', 'AXA'];
-      const data = companies.map(c => invoices.filter(i => i.company === c).reduce((acc, i) => acc + i.companyPaid, 0));
-
       chartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: companies,
+          labels: Object.keys(companyData),
           datasets: [{
-            label: 'مطلب الشركة (ج.م)',
-            data: data,
+            label: 'إجمالي مطالبات الشركة (ج.م)',
+            data: Object.values(companyData),
             backgroundColor: '#2563eb'
           }]
         },
@@ -728,44 +727,24 @@
       });
     }
 
-    function printCurrentForm() {
-      document.getElementById('invPharmName').innerText = settings.pharmacyName;
-      document.getElementById('invPharmDetails').innerText = `${settings.address} | س.ت: ${settings.commReg} | ب.ض: ${settings.taxReg}`;
-      document.getElementById('invCompany').innerText = 'الشركة: ' + document.getElementById('companySelect').value;
-      document.getElementById('invDate').innerText = document.getElementById('claimDate').value;
-      document.getElementById('invTicket').innerText = document.getElementById('ticketNo').value;
-      document.getElementById('invPatientName').innerText = document.getElementById('patientName').value;
-      document.getElementById('invCardNo').innerText = document.getElementById('cardNo').value;
-      document.getElementById('invNationalId').innerText = document.getElementById('nationalId').value || '-';
-      document.getElementById('invPhone').innerText = document.getElementById('patientPhone').value || '-';
+    function renderReports() {
+      const grid = document.getElementById('companyReportsGrid');
+      grid.innerHTML = '';
+      const companies = ['MetLife', 'MedRight', 'AXA'];
 
-      const tbody = document.getElementById('invMedicinesTableBody');
-      tbody.innerHTML = '';
-      let idx = 1;
-      document.querySelectorAll('#medicinesTableBody tr').forEach(row => {
-        const name = row.querySelector('.med-name').value;
-        const qty = row.querySelector('.med-qty').value;
-        const price = row.querySelector('.med-price').value;
-        const total = row.querySelector('.med-total').value;
+      companies.forEach(comp => {
+        const compInvoices = invoices.filter(i => i.company === comp);
+        const total = compInvoices.reduce((acc, cur) => acc + cur.companyPaid, 0);
 
-        if (name) {
-          tbody.innerHTML += `
-            <tr>
-              <td class="border p-2 text-right">${idx++}</td>
-              <td class="border p-2 text-right">${name}</td>
-              <td class="border p-2 text-center">${qty}</td>
-              <td class="border p-2 text-left">${parseFloat(price).toFixed(2)}</td>
-              <td class="border p-2 text-left">${parseFloat(total).toFixed(2)}</td>
-            </tr>
-          `;
-        }
+        const card = document.createElement('div');
+        card.className = 'bg-white p-5 rounded-2xl shadow-sm border border-slate-200';
+        card.innerHTML = `
+          <h3 class="font-bold text-lg border-b pb-2 mb-3 text-slate-800">${comp}</h3>
+          <p class="text-xs text-slate-500">عدد المطالبات: <span class="font-bold text-slate-800">${compInvoices.length}</span></p>
+          <p class="text-xs text-slate-500 mt-1">المبلغ المطلوب: <span class="font-bold text-blue-600 text-base">${total.toFixed(2)} ج.م</span></p>
+        `;
+        grid.appendChild(card);
       });
-
-      document.getElementById('invTotal').innerText = (parseFloat(document.getElementById('totalAmount').value) || 0).toFixed(2) + ' ج.م';
-      document.getElementById('invPatientPaid').innerText = document.getElementById('patientPaid').value;
-      document.getElementById('invCompanyPaid').innerText = document.getElementById('companyPaid').value;
-
-      window.print();
     }
 
     function saveSettings() {
@@ -776,28 +755,58 @@
       settings.apiKey = document.getElementById('settingApiKey').value;
 
       localStorage.setItem('pharmacy_settings_v2', JSON.stringify(settings));
-      if (settings.apiKey) document.getElementById('apiKeyInput').value = settings.apiKey;
-      alert('تم حفظ إعدادات v2 بنجاح!');
+      if(settings.apiKey) document.getElementById('apiKeyInput').value = settings.apiKey;
+      alert('تم حفظ الإعدادات بنجاح!');
     }
 
-    function loadSettings() {
-      document.getElementById('settingPharmacyName').value = settings.pharmacyName;
-      document.getElementById('settingAddress').value = settings.address;
-      document.getElementById('settingCommReg').value = settings.commReg;
-      document.getElementById('settingTaxReg').value = settings.taxReg;
-      document.getElementById('settingApiKey').value = settings.apiKey;
-      if (settings.apiKey) document.getElementById('apiKeyInput').value = settings.apiKey;
-    }
+    function printCurrentForm() {
+      document.getElementById('printPharmName').innerText = settings.pharmacyName || 'صيدلية الجبلي';
+      document.getElementById('printPharmDetails').innerText = settings.address || '';
+      document.getElementById('invCompany').innerText = 'الشركة: ' + document.getElementById('companySelect').value;
+      document.getElementById('invDate').innerText = document.getElementById('claimDate').value;
+      document.getElementById('invTicket').innerText = document.getElementById('ticketNo').value;
+      document.getElementById('invPatientName').innerText = document.getElementById('patientName').value;
+      document.getElementById('invCardNo').innerText = document.getElementById('cardNo').value;
+      document.getElementById('invNationalId').innerText = document.getElementById('nationalId').value || '-';
+      document.getElementById('invPhone').innerText = document.getElementById('patientPhone').value || '-';
 
-    function toggleMedrightFields() {
-      const comp = document.getElementById('companySelect').value;
-      if (comp === 'MedRight') document.getElementById('medrightApprovalDiv').classList.remove('hidden');
-      else document.getElementById('medrightApprovalDiv').classList.add('hidden');
-    }
+      const company = document.getElementById('companySelect').value;
+      const approvalRow = document.getElementById('invApprovalRow');
+      if (company === 'MedRight') {
+        approvalRow.classList.remove('hidden');
+        document.getElementById('invApprovalNo').innerText = document.getElementById('approvalNo').value || '-';
+      } else {
+        approvalRow.classList.add('hidden');
+      }
 
-    document.getElementById('claimDate').valueAsDate = new Date();
-    loadSettings();
-    renderDashboard();
+      const invTbody = document.getElementById('invMedicinesTableBody');
+      invTbody.innerHTML = '';
+      let index = 1;
+      document.querySelectorAll('#medicinesTableBody tr').forEach(row => {
+        const name = row.querySelector('.med-name').value;
+        const qty = row.querySelector('.med-qty').value;
+        const price = row.querySelector('.med-price').value;
+        const total = row.querySelector('.med-total').value;
+
+        if(name) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="border p-2 text-right">${index++}</td>
+            <td class="border p-2 text-right">${name}</td>
+            <td class="border p-2 text-center">${qty}</td>
+            <td class="border p-2 text-left">${price}</td>
+            <td class="border p-2 text-left">${total}</td>
+          `;
+          invTbody.appendChild(tr);
+        }
+      });
+
+      document.getElementById('invTotal').innerText = (parseFloat(document.getElementById('totalAmount').value) || 0).toFixed(2) + ' ج.م';
+      document.getElementById('invPatientPaid').innerText = (parseFloat(document.getElementById('patientPaid').value) || 0).toFixed(2);
+      document.getElementById('invCompanyPaid').innerText = (parseFloat(document.getElementById('companyPaid').value) || 0).toFixed(2);
+
+      window.print();
+    }
   </script>
 </body>
 </html>
