@@ -150,7 +150,7 @@
         }
 
         /* ------------------------------------------------------------- */
-        /* قواعد الطباعة المعدلة والمضمونة (CSS for Print)               */
+        /* قواعد طباعة التذكرة / الفاتورة (CSS for Print)               */
         /* ------------------------------------------------------------- */
         @media screen {
             #print-area {
@@ -159,25 +159,22 @@
         }
 
         @media print {
-            html, body {
-                background: #ffffff !important;
-                color: #000000 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
-
-            /* إخفاء واجهة التحكم */
+            /* إخفاء الواجهة العادية بالكامل أثناء الطباعة */
             .no-print {
                 display: none !important;
             }
 
-            /* إظهار الفاتورة فقط */
+            /* إظهار منطقة الطباعة فقط على الورقة */
             #print-area {
                 display: block !important;
                 width: 100% !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
                 margin: 0 !important;
                 padding: 15px !important;
-                box-sizing: border-box !important;
+                background: #ffffff !important;
+                color: #000000 !important;
                 direction: rtl !important;
             }
 
@@ -222,7 +219,7 @@
             }
 
             .print-totals {
-                width: 60%;
+                width: 50%;
                 margin-left: auto;
                 font-size: 13px;
             }
@@ -332,7 +329,7 @@
                     </tr>
                 </thead>
                 <tbody id="medsBody">
-                    <!-- الأدوية -->
+                    <!-- سيتم إضافة الأدوية تلقائياً أو يدويًا -->
                 </tbody>
             </table>
             
@@ -381,15 +378,17 @@
 
 
     <!-- ============================================================== -->
-    <!-- منطقة الطباعة (تظهر فقط أثناء الطباعة)                          -->
+    <!-- منطقة الطباعة (تظهر فقط عند تنفيذ أمر الطباعة window.print())   -->
     <!-- ============================================================== -->
     <div id="print-area">
+        <!-- الهيدر -->
         <div class="print-header">
             <h2 id="p-pharmacy-name">صيدلية الشفاء</h2>
-            <p>سجل تجاري: <span id="p-cr-no">---</span> | تسجيل ضريبي: <span id="p-tax-no">---</span></p>
+            <p>سجل تجاري: <span id="p-cr-no">123456</span> | تسجيل ضريبي: <span id="p-tax-no">987-654-321</span></p>
             <h3 style="margin-top: 10px; text-decoration: underline;">تذكرة صرف أدوية / فاتورة مريض</h3>
         </div>
 
+        <!-- بيانات المريض والتذكرة -->
         <div class="print-info-grid">
             <div><strong>رقم التذكرة:</strong> <span id="p-ticket-no">---</span></div>
             <div><strong>التاريخ والوقت:</strong> <span id="p-date-time">---</span></div>
@@ -398,6 +397,7 @@
             <div style="grid-column: span 2;"><strong>الشركة / جهة التغطية:</strong> <span id="p-company-name">---</span></div>
         </div>
 
+        <!-- جدول الأدوية -->
         <table class="print-table">
             <thead>
                 <tr>
@@ -409,10 +409,11 @@
                 </tr>
             </thead>
             <tbody id="p-meds-list">
-                <!-- جدول الأدوية للطباعة -->
+                <!-- ينزل هنا جدول الأدوية -->
             </tbody>
         </table>
 
+        <!-- الإجماليات والتحمل والخصم -->
         <div class="print-totals">
             <div class="print-totals-row">
                 <span>إجمالي الأدوية:</span>
@@ -432,6 +433,7 @@
             </div>
         </div>
 
+        <!-- الفوتر -->
         <div class="print-footer">
             <p>مع تحيات صيدليتك - نتمنى لكم الشفاء العاجل 💙</p>
             <p>تم استخراج هذه التذكرة آلياً</p>
@@ -439,14 +441,18 @@
     </div>
 
 
-    <!-- Script Logic -->
+    <!-- ============================================================== -->
+    <!-- كود الـ JavaScript للعمليات والذكاء الاصطناعي والطباعة        -->
+    <!-- ============================================================== -->
     <script>
+        // إعداد صفوف ابتدائية عند فتح الصفحة
         window.onload = function() {
             addMedicineRow("بندول اكسترا 500 مجم", 2, 25);
             addMedicineRow("أوجمنتين 1 جم", 1, 90);
             calculateTotals();
         };
 
+        // إضافة صف دواء جديد للجدول
         function addMedicineRow(name = '', qty = 1, price = 0) {
             const tbody = document.getElementById('medsBody');
             const tr = document.createElement('tr');
@@ -462,11 +468,13 @@
             calculateTotals();
         }
 
+        // حذف صف دواء
         function removeRow(btn) {
             btn.closest('tr').remove();
             calculateTotals();
         }
 
+        // حساب الإجماليات والتحملات
         function calculateTotals() {
             const rows = document.querySelectorAll('#medsBody tr');
             let subtotal = 0;
@@ -495,20 +503,23 @@
             return { subtotal, discount, companyShare, patientShare };
         }
 
-        // دالة إعداد ونقل البيانات إلى جدول منطقة الطباعة تلقائياً
-        function preparePrintData() {
+        // دالة تحضير وطباعة التذكرة / الفاتورة
+        function printReceipt() {
             const totals = calculateTotals();
 
+            // 1. نقل بيانات الصيدلية للطباعة
             document.getElementById('p-pharmacy-name').innerText = document.getElementById('pharmacyName').value || 'اسم الصيدلية';
             document.getElementById('p-cr-no').innerText = document.getElementById('commercialRegister').value || '---';
             document.getElementById('p-tax-no').innerText = document.getElementById('taxRegister').value || '---';
 
+            // 2. نقل بيانات المريض والتذكرة
             document.getElementById('p-ticket-no').innerText = document.getElementById('ticketNo').value || 'غير محدد';
             document.getElementById('p-patient-name').innerText = document.getElementById('patientName').value || 'غير محدد';
             document.getElementById('p-card-no').innerText = document.getElementById('cardNo').value || 'غير محدد';
             document.getElementById('p-company-name').innerText = document.getElementById('companyName').value || 'نقدي';
             document.getElementById('p-date-time').innerText = new Date().toLocaleString('ar-EG');
 
+            // 3. نقل جدول الأدوية
             const printTbody = document.getElementById('p-meds-list');
             printTbody.innerHTML = '';
 
@@ -522,33 +533,30 @@
                     const price = parseFloat(row.querySelector('.med-price').value) || 0;
                     const total = (qty * price).toFixed(2);
 
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${index + 1}</td>
-                        <td style="text-align: right;">${name}</td>
-                        <td>${qty}</td>
-                        <td>${price.toFixed(2)}</td>
-                        <td>${total}</td>
+                    const pRow = `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td style="text-align: right;">${name}</td>
+                            <td>${qty}</td>
+                            <td>${price.toFixed(2)}</td>
+                            <td>${total}</td>
+                        </tr>
                     `;
-                    printTbody.appendChild(tr);
+                    printTbody.innerHTML += pRow;
                 });
             }
 
+            // 4. نقل الحسابات المالية
             document.getElementById('p-subtotal').innerText = totals.subtotal.toFixed(2) + ' ج.م';
             document.getElementById('p-discount').innerText = totals.discount.toFixed(2) + ' ج.م';
             document.getElementById('p-company-share').innerText = totals.companyShare.toFixed(2) + ' ج.م';
             document.getElementById('p-patient-share').innerText = totals.patientShare.toFixed(2) + ' ج.م';
-        }
 
-        // ربط دالة الإعداد بأمر الطباعة التلقائي بأي طريقة (زر أو Ctrl+P)
-        window.addEventListener('beforeprint', preparePrintData);
-
-        function printReceipt() {
-            preparePrintData();
+            // 5. استدعاء أمر الطباعة المباشر
             window.print();
         }
 
-        // AI Gemini API
+        // دالة استدعاء Gemini API لتحليل الصور والتذاكر
         async function analyzePrescription() {
             const apiKey = document.getElementById('apiKey').value.trim();
             const fileInput = document.getElementById('prescriptionImage');
@@ -564,7 +572,7 @@
                 return;
             }
 
-            statusDiv.innerText = '⏳ جاري قراءة التذكرة واستخراج الأدوية...';
+            statusDiv.innerText = '⏳ جاري قراءة التذكرة واستخراج الأدوية باستخدام الذكاء الاصطناعي...';
 
             try {
                 const file = fileInput.files[0];
@@ -573,7 +581,7 @@
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
                 const promptText = `
-                قم بقراءة هذه الروشتة / التذكرة واستخرج منها قائمة الأدوية في صيغة JSON فقط بدون أي شرح:
+                قم بقراءة هذه الروشتة / التذكرة واستخرج منها قائمة الأدوية في صيغة JSON فقط بدون أي شرح أو كلام إضافي:
                 [
                   {"name": "اسم الدواء", "qty": العدد, "price": السعر_المتوقع}
                 ]
@@ -598,14 +606,15 @@
                 });
 
                 const data = await response.json();
+                
                 if (data.error) {
                     statusDiv.innerText = '❌ حدث خطأ من API: ' + data.error.message;
                     return;
                 }
 
                 statusDiv.innerText = '✅ تم استخراج البيانات بنجاح!';
+
                 const rawText = data.candidates[0].content.parts[0].text;
-                
                 try {
                     const cleanJson = rawText.replace(/```json|```/g, '').trim();
                     const meds = JSON.parse(cleanJson);
@@ -615,7 +624,8 @@
                         addMedicineRow(med.name, med.qty || 1, med.price || 0);
                     });
                 } catch (e) {
-                    alert('تم استخراج البيانات، يرجى التدقيق قبل الطباعة.');
+                    console.log('النص المستخرج:', rawText);
+                    alert('تم استخراج البيانات ولكن يرجى مراجعة الجدول وتدقيقه.');
                 }
 
             } catch (err) {
