@@ -1,830 +1,651 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نظام صيدلية الجبلي للتأمين الطبي v3.6</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- مكتبة تحويل الـ PDF إلى صور داخل المتصفح -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    @media print {
-      body * { visibility: hidden; }
-      #printableInvoice, #printableInvoice * { visibility: visible; }
-      #printableInvoice { position: absolute; left: 0; top: 0; width: 100%; }
-      .no-print { display: none !important; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة وتدقيق الفواتير - الصيدلية</title>
+    <!-- خط القاهرة -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Cairo', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        h1, h2, h3 {
+            margin-top: 0;
+            color: #0f172a;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 15px;
+            transition: background-color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-success { background-color: #16a34a; }
+        .btn-success:hover { background-color: #15803d; }
+        .btn-danger { background-color: #dc2626; }
+        .btn-danger:hover { background-color: #b91c1c; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            font-weight: 700;
+        }
+
+        .totals-box {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px dashed var(--border-color);
+            margin-top: 15px;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 15px;
+        }
+
+        .totals-row.grand-total {
+            font-weight: bold;
+            font-size: 18px;
+            color: #16a34a;
+            border-top: 2px solid var(--border-color);
+            padding-top: 10px;
+        }
+
+        /* ------------------------------------------------------------- */
+        /* قواعد طباعة التذكرة / الفاتورة (CSS for Print)               */
+        /* ------------------------------------------------------------- */
+        #print-area {
+            display: none; /* إخفاء منطقة الطباعة في التصفح العادي */
+        }
+
+        @media print {
+            /* إخفاء كل عناصر الواجهة العادية أثناء الطباعة */
+            body * {
+                visibility: hidden;
+            }
+
+            /* إظهار منطقة الطباعة فقط ومحتوياتها */
+            #print-area, #print-area * {
+                visibility: visible;
+            }
+
+            #print-area {
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 20px;
+                background: #fff;
+                color: #000;
+                font-family: 'Cairo', sans-serif;
+                direction: rtl;
+            }
+
+            .print-header {
+                text-align: center;
+                border-bottom: 2px solid #000;
+                padding-bottom: 10px;
+                margin-bottom: 15px;
+            }
+
+            .print-header h2 {
+                margin: 0 0 5px 0;
+                font-size: 22px;
+            }
+
+            .print-header p {
+                margin: 2px 0;
+                font-size: 12px;
+            }
+
+            .print-info-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                font-size: 13px;
+                margin-bottom: 15px;
+                border-bottom: 1px dashed #000;
+                padding-bottom: 10px;
+            }
+
+            .print-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 15px;
+            }
+
+            .print-table th, .print-table td {
+                border: 1px solid #000;
+                padding: 6px 8px;
+                font-size: 12px;
+                text-align: center;
+            }
+
+            .print-totals {
+                width: 55%;
+                margin-left: auto;
+                font-size: 13px;
+            }
+
+            .print-totals-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 4px 0;
+            }
+
+            .print-totals-row.final {
+                font-weight: bold;
+                font-size: 15px;
+                border-top: 1px solid #000;
+                margin-top: 5px;
+                padding-top: 5px;
+            }
+
+            .print-footer {
+                text-align: center;
+                margin-top: 30px;
+                font-size: 11px;
+                border-top: 1px solid #ddd;
+                padding-top: 10px;
+            }
+        }
+    </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans flex h-screen overflow-hidden">
+<body>
 
-  <!-- الشريط الجانبي Sidebar -->
-  <aside class="w-64 bg-slate-900 text-white flex flex-col no-print shrink-0">
-    <div class="p-5 border-b border-slate-800 flex items-center gap-3">
-      <div class="bg-blue-600 p-2 rounded-lg text-white"><i class="fa-solid fa-prescription-bottle-medical text-xl"></i></div>
-      <div>
-        <h1 class="font-bold text-base leading-tight">صيدلية الجبلي</h1>
-        <p class="text-xs text-slate-400">نظام التأمين الطبي v3.6</p>
-      </div>
-    </div>
-
-    <nav class="flex-1 p-4 space-y-1 text-sm font-medium">
-      <button onclick="switchTab('home')" id="nav-home" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white transition">
-        <i class="fa-solid fa-chart-pie w-5"></i> الصفحة الرئيسية
-      </button>
-      <button onclick="switchTab('newInvoice')" id="nav-newInvoice" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-file-circle-plus w-5"></i> إدخال فاتورة جديدة
-      </button>
-      <button onclick="switchTab('records')" id="nav-records" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-folder-open w-5"></i> سجل الفواتير والتعديل
-      </button>
-      <button onclick="switchTab('reports')" id="nav-reports" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-file-invoice-dollar w-5"></i> التقارير الشهرية
-      </button>
-      <button onclick="switchTab('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-gear w-5"></i> الإعدادات
-      </button>
-    </nav>
-
-    <div class="p-4 border-t border-slate-800 text-xs text-slate-400 text-center">
-      شارع صلاح سالم - الباجور <br> س.ت: 60961 | ب.ض: 611509792
-    </div>
-  </aside>
-
-  <!-- المحتوى الرئيسي -->
-  <main class="flex-1 overflow-y-auto p-6 md:p-8 no-print">
-
-    <!-- 1. الصفحة الرئيسية (Dashboard) -->
-    <section id="page-home" class="space-y-6">
-      <div class="flex justify-between items-center">
-        <div>
-          <h2 class="text-2xl font-bold text-slate-800">لوحة التحكم واستعلامات</h2>
-          <p class="text-sm text-slate-500">ملخص الأداء والمطالبات الشهرية</p>
+    <!-- الواجهة الأساسية للنظام (تختفي عند الطباعة) -->
+    <div class="container no-print">
+        
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h1>💊 نظام إدارة وتدقيق الفواتير والتذاكر الطبية</h1>
+            <p style="color: #64748b;">قراءة التذاكر بالذكاء الاصطناعي وطباعة إيصالات الصيدلية</p>
         </div>
-        <button onclick="switchTab('newInvoice')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl text-sm flex items-center gap-2">
-          <i class="fa-solid fa-plus"></i> فاتورة جديدة
-        </button>
-      </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <p class="text-xs font-semibold text-slate-500">إجمالي مطالبة الشركات</p>
-          <h3 class="text-2xl font-bold text-blue-600 mt-1" id="dashTotalCompany">0.00 ج.م</h3>
+        <!-- 1. بيانات الصيدلية -->
+        <div class="card">
+            <h3>🏢 بيانات الصيدلية</h3>
+            <div class="grid-3">
+                <div class="form-group">
+                    <label>اسم الصيدلية:</label>
+                    <input type="text" id="pharmacyName" value="صيدلية الشفاء والخدمات الطبية">
+                </div>
+                <div class="form-group">
+                    <label>رقم السجل التجاري:</label>
+                    <input type="text" id="commercialRegister" value="123456">
+                </div>
+                <div class="form-group">
+                    <label>رقم التسجيل الضريبي:</label>
+                    <input type="text" id="taxRegister" value="987-654-321">
+                </div>
+            </div>
         </div>
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <p class="text-xs font-semibold text-slate-500">إجمالي مدفوعات المرضى</p>
-          <h3 class="text-2xl font-bold text-emerald-600 mt-1" id="dashTotalPatient">0.00 ج.م</h3>
-        </div>
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <p class="text-xs font-semibold text-slate-500">عدد الفواتير المسجلة</p>
-          <h3 class="text-2xl font-bold text-slate-800 mt-1" id="dashCount">0</h3>
-        </div>
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <p class="text-xs font-semibold text-slate-500">فواتير العلاج الشهري</p>
-          <h3 class="text-2xl font-bold text-amber-600 mt-1" id="dashMonthlyCount">0</h3>
-        </div>
-      </div>
 
-      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-        <h3 class="font-bold text-slate-700 mb-4">توزيع المطالبات حسب شركة التأمين</h3>
-        <div class="h-64">
-          <canvas id="companyChart"></canvas>
+        <!-- 2. بيانات المريض والتذكرة -->
+        <div class="card">
+            <h3>👤 بيانات المريض والتذكرة</h3>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>رقم التذكرة / الإذن:</label>
+                    <input type="text" id="ticketNo" placeholder="مثال: T-1025">
+                </div>
+                <div class="form-group">
+                    <label>اسم المريض:</label>
+                    <input type="text" id="patientName" placeholder="اسم المريض بالكامل">
+                </div>
+                <div class="form-group">
+                    <label>رقم الكارنيه / التغطية:</label>
+                    <input type="text" id="cardNo" placeholder="رقم الكارنيه أو هوية التأمين">
+                </div>
+                <div class="form-group">
+                    <label>اسم الشركة / جهة التأمين:</label>
+                    <input type="text" id="companyName" placeholder="مثال: شركة التأمين الصحي / نقدي">
+                </div>
+            </div>
         </div>
-      </div>
-    </section>
 
-    <!-- 2. صفحة إدخال فاتورة جديدة -->
-    <section id="page-newInvoice" class="hidden space-y-6">
-      <div class="flex justify-between items-center">
-        <h2 class="text-2xl font-bold text-slate-800" id="formTitle">إدخال فاتورة تأمين جديدة</h2>
-        <button type="button" onclick="resetForm()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 px-3 rounded-lg">إعادة ضبط النموذج</button>
-      </div>
+        <!-- 3. الذكاء الاصطناعي والقراءة الذكية -->
+        <div class="card">
+            <h3>🤖 قراءة الروشتة / التذكرة بالذكاء الاصطناعي (Gemini)</h3>
+            <div class="form-group">
+                <label>مفتاح API الخاص بك (Gemini API Key):</label>
+                <input type="password" id="apiKey" placeholder="أدخل مفتاح AI API الخاص بك هنا">
+            </div>
+            <div class="form-group">
+                <label>صورة الروشتة أو نص التذكرة:</label>
+                <input type="file" id="prescriptionImage" accept="image/*">
+            </div>
+            <button type="button" onclick="analyzePrescription()">✨ تحليل التذكرة واستخراج الأدوية</button>
+            <div id="aiStatus" style="margin-top: 10px; font-weight: bold; color: var(--primary);"></div>
+        </div>
 
-      <!-- القراءة الذكية بواسطة Gemini AI -->
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-        <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-blue-600"></i> القراءة الذكية للروشتة (Gemini AI)</h3>
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div>
-            <label class="block text-xs font-medium mb-1">شركة التأمين</label>
-            <select id="companySelect" onchange="toggleMedrightFields()" class="w-full border border-slate-300 rounded-lg p-2 text-sm">
-              <option value="MetLife">ميتلايف (MetLife)</option>
-              <option value="MedRight">ميدرايت (MedRight)</option>
-              <option value="AXA">أكسا (AXA)</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">إصدار الموديل (Model)</label>
-            <select id="modelSelect" class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-blue-50 font-semibold text-blue-900">
-              <option value="gemini-3.6-flash" selected>gemini-3.6-flash</option>
-              <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-              <option value="gemini-1.5-flash">gemini-1.5-flash</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">مفتاح API Key</label>
-            <input type="password" id="apiKeyInput" placeholder="أدخل المفتاح هنا..." class="w-full border border-slate-300 rounded-lg p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">ملف الروشتة (صورة/PDF)</label>
-            <input type="file" id="pdfFileInput" accept="image/*,application/pdf" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
-          </div>
-          <div class="flex items-end">
-            <button onclick="processPDFWithAI()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm flex items-center justify-center gap-2">
-              <span id="btnText"><i class="fa-solid fa-brain"></i> استخراج البيانات</span>
+        <!-- 4. الأدوية والأسعار والنسب -->
+        <div class="card">
+            <h3>💊 الأدوية والحسابات</h3>
+            <table id="medsTable">
+                <thead>
+                    <tr>
+                        <th>اسم الدواء</th>
+                        <th style="width: 100px;">الكمية</th>
+                        <th style="width: 120px;">سعر الوحدة</th>
+                        <th style="width: 120px;">الإجمالي</th>
+                        <th style="width: 60px;">حذف</th>
+                    </tr>
+                </thead>
+                <tbody id="medsBody">
+                    <!-- سيتم إضافة الأدوية تلقائياً أو يدويًا -->
+                </tbody>
+            </table>
+            
+            <button type="button" onclick="addMedicineRow()" style="margin-top: 10px; background-color: #64748b;">+ إضافة دواء يدوي</button>
+
+            <!-- الإجماليات والنسب -->
+            <div class="totals-box">
+                <div class="grid-3">
+                    <div class="form-group">
+                        <label>الخصم (ج.م):</label>
+                        <input type="number" id="discountInput" value="0" min="0" oninput="calculateTotals()">
+                    </div>
+                    <div class="form-group">
+                        <label>نسبة تحمل الشركة (%):</label>
+                        <input type="number" id="companySharePercent" value="80" min="0" max="100" oninput="calculateTotals()">
+                    </div>
+                </div>
+
+                <div class="totals-row">
+                    <span>الإجمالي الفرعي للأدوية:</span>
+                    <span id="subtotalDisplay">0.00 ج.م</span>
+                </div>
+                <div class="totals-row">
+                    <span>قيمة الخصم:</span>
+                    <span id="discountDisplay">0.00 ج.م</span>
+                </div>
+                <div class="totals-row">
+                    <span>مبلغ تحمل الشركة:</span>
+                    <span id="companyShareDisplay">0.00 ج.م</span>
+                </div>
+                <div class="totals-row grand-total">
+                    <span>المطلوب دفعه من المريض (الصافي):</span>
+                    <span id="patientShareDisplay">0.00 ج.م</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. زر الطباعة -->
+        <div style="text-align: center; margin-bottom: 40px;">
+            <button type="button" class="btn-success" onclick="printReceipt()" style="padding: 15px 40px; font-size: 18px;">
+                🖨️ طباعة الفاتورة / التذكرة
             </button>
-          </div>
         </div>
-      </div>
 
-      <!-- إدخال البيانات والتعديل -->
-      <form id="claimForm" onsubmit="event.preventDefault(); saveRecord();" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-        <input type="hidden" id="editingId" value="">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label class="block text-xs font-medium mb-1">اسم المريض *</label>
-            <input type="text" id="patientName" required class="w-full border border-slate-300 rounded-lg p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">رقم التذكرة / المطالبة *</label>
-            <input type="text" id="ticketNo" required class="w-full border border-slate-300 rounded-lg p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">رقم الكارنيه *</label>
-            <input type="text" id="cardNo" required class="w-full border border-slate-300 rounded-lg p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">الرقم القومي</label>
-            <input type="text" id="nationalId" class="w-full border border-slate-300 rounded-lg p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">رقم الهاتف</label>
-            <input type="text" id="patientPhone" class="w-full border border-slate-300 rounded-lg p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">التاريخ</label>
-            <input type="date" id="claimDate" required class="w-full border border-slate-300 rounded-lg p-2 text-sm">
-          </div>
-          <div id="medrightApprovalDiv" class="hidden">
-            <label class="block text-xs font-medium mb-1 text-purple-700 font-bold">رقم الموافقة (ميدرايت)</label>
-            <input type="text" id="approvalNo" class="w-full border border-purple-300 bg-purple-50 rounded-lg p-2 text-sm">
-          </div>
-          <div class="flex items-center gap-2 mt-6">
-            <input type="checkbox" id="isMonthly" class="w-4 h-4 text-blue-600 rounded">
-            <label for="isMonthly" class="text-xs font-semibold text-amber-700">علاج شهري مكرر</label>
-          </div>
+    </div>
+
+
+    <!-- ============================================================== -->
+    <!-- منطقة الطباعة (تظهر فقط عند تنفيذ أمر الطباعة window.print())   -->
+    <!-- ============================================================== -->
+    <div id="print-area">
+        <!-- الهيدر -->
+        <div class="print-header">
+            <h2 id="p-pharmacy-name">صيدلية الشفاء</h2>
+            <p>سجل تجاري: <span id="p-cr-no">123456</span> | تسجيل ضريبي: <span id="p-tax-no">987-654-321</span></p>
+            <h3 style="margin-top: 10px; text-decoration: underline;">تذكرة صرف أدوية / فاتورة مريض</h3>
+        </div>
+
+        <!-- بيانات المريض والتذكرة -->
+        <div class="print-info-grid">
+            <div><strong>رقم التذكرة:</strong> <span id="p-ticket-no">---</span></div>
+            <div><strong>التاريخ والوقت:</strong> <span id="p-date-time">---</span></div>
+            <div><strong>اسم المريض:</strong> <span id="p-patient-name">---</span></div>
+            <div><strong>رقم الكارنيه:</strong> <span id="p-card-no">---</span></div>
+            <div style="grid-column: span 2;"><strong>الشركة / جهة التغطية:</strong> <span id="p-company-name">---</span></div>
         </div>
 
         <!-- جدول الأدوية -->
-        <div class="border-t border-slate-200 pt-4">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-bold text-sm text-slate-700">تفاصيل الأدوية الموصوفة</h3>
-            <button type="button" onclick="addMedicineRow()" class="bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold py-1.5 px-3 rounded-lg">+ إضافة دواء يدوي</button>
-          </div>
-          
-          <table class="w-full text-xs text-right border-collapse border border-slate-200 mb-4">
+        <table class="print-table">
             <thead>
-              <tr class="bg-slate-50 text-slate-700">
-                <th class="p-2 border">اسم الدواء</th>
-                <th class="p-2 border w-24">الكمية</th>
-                <th class="p-2 border w-32">سعر الوحدة (ج.م)</th>
-                <th class="p-2 border w-32">الإجمالي (ج.م)</th>
-                <th class="p-2 border w-12 text-center">حذف</th>
-              </tr>
+                <tr>
+                    <th style="width: 30px;">#</th>
+                    <th>اسم الدواء</th>
+                    <th style="width: 60px;">الكمية</th>
+                    <th style="width: 80px;">سعر الوحدة</th>
+                    <th style="width: 90px;">الإجمالي</th>
+                </tr>
             </thead>
-            <tbody id="medicinesTableBody"></tbody>
-          </table>
+            <tbody id="p-meds-list">
+                <!-- ينزل هنا جدول الأدوية -->
+            </tbody>
+        </table>
 
-          <!-- تفاصيل الحساب والنسب -->
-          <div class="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
-            <div>
-              <label class="block font-medium mb-1">إجمالي المبلغ</label>
-              <input type="number" step="0.01" id="totalAmount" oninput="calculateInvoice()" class="w-full border rounded-lg p-2 font-bold">
+        <!-- الإجماليات والتحمل والخصم -->
+        <div class="print-totals">
+            <div class="print-totals-row">
+                <span>إجمالي الأدوية:</span>
+                <span id="p-subtotal">0.00 ج.م</span>
             </div>
-            <div>
-              <label class="block font-medium mb-1">تحمل المريض (%)</label>
-              <input type="number" step="0.01" id="patientCopayPercent" value="10" oninput="calculateInvoice()" class="w-full border rounded-lg p-2">
+            <div class="print-totals-row">
+                <span>الخصم:</span>
+                <span id="p-discount">0.00 ج.م</span>
             </div>
-            <div>
-              <label class="block font-medium mb-1">خصم الصيدلية (%)</label>
-              <input type="number" step="0.01" id="pharmacyDiscountPercent" value="15" oninput="calculateInvoice()" class="w-full border rounded-lg p-2">
+            <div class="print-totals-row">
+                <span>تحمل الشركة:</span>
+                <span id="p-company-share">0.00 ج.م</span>
             </div>
-            <div>
-              <label class="block font-medium mb-1">تحمل المريض (ج.م)</label>
-              <input type="number" id="patientPaid" readonly class="w-full bg-slate-200 border rounded-lg p-2 font-bold">
+            <div class="print-totals-row final">
+                <span>تحمل المريض (المطلوب):</span>
+                <span id="p-patient-share">0.00 ج.م</span>
             </div>
-            <div>
-              <label class="block font-medium mb-1">مطلب الشركة (ج.م)</label>
-              <input type="number" id="companyPaid" readonly class="w-full bg-slate-200 border rounded-lg p-2 font-bold text-blue-700">
-            </div>
-          </div>
         </div>
 
-        <div class="flex gap-3">
-          <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm"><i class="fa-solid fa-floppy-disk"></i> حفظ الفاتورة</button>
-          <button type="button" onclick="printCurrentForm()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 px-6 rounded-xl text-sm"><i class="fa-solid fa-print"></i> معاينة وطباعة</button>
+        <!-- الفوتر -->
+        <div class="print-footer">
+            <p>مع تحيات صيدليتك - نتمنى لكم الشفاء العاجل 💙</p>
+            <p>تم استخراج هذه التذكرة آلياً</p>
         </div>
-      </form>
-    </section>
-
-    <!-- 3. صفحة سجل الفواتير والتعديل -->
-    <section id="page-records" class="hidden space-y-6">
-      <div class="flex justify-between items-center">
-        <div>
-          <h2 class="text-2xl font-bold text-slate-800">سجل الفواتير المحفوظة</h2>
-          <p class="text-sm text-slate-500">عرض، تعديل، حذف، أو إعادة طباعة أي فاتورة</p>
-        </div>
-        <input type="text" id="searchRecordInput" onkeyup="filterRecords()" placeholder="بحث باسم المريض أو الكارنيه..." class="border border-slate-300 rounded-xl p-2 text-xs w-64">
-      </div>
-
-      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs text-right border-collapse">
-            <thead>
-              <tr class="bg-slate-50 border-b text-slate-600">
-                <th class="p-3">التاريخ</th>
-                <th class="p-3">المريض</th>
-                <th class="p-3">الشركة</th>
-                <th class="p-3">رقم التذكرة</th>
-                <th class="p-3">الإجمالي</th>
-                <th class="p-3">مطلب الشركة</th>
-                <th class="p-3">تحمل المريض</th>
-                <th class="p-3 text-center">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody id="fullRecordsTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- 4. صفحة التقارير الشهرية -->
-    <section id="page-reports" class="hidden space-y-6">
-      <div class="flex justify-between items-center">
-        <div>
-          <h2 class="text-2xl font-bold text-slate-800">التقارير الشهرية لشركات التأمين</h2>
-          <p class="text-sm text-slate-500">تجميع إجمالي المطالبات لكل شركة</p>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="companyReportsGrid"></div>
-    </section>
-
-    <!-- 5. صفحة الإعدادات -->
-    <section id="page-settings" class="hidden space-y-6">
-      <h2 class="text-2xl font-bold text-slate-800">إعدادات النظام والبيانات الضريبية</h2>
-
-      <form id="settingsForm" onsubmit="event.preventDefault(); saveSettings();" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4 max-w-2xl">
-        <div>
-          <label class="block text-xs font-medium mb-1">اسم الصيدلية</label>
-          <input type="text" id="settingPharmacyName" class="w-full border rounded-lg p-2 text-sm">
-        </div>
-        <div>
-          <label class="block text-xs font-medium mb-1">العنوان</label>
-          <input type="text" id="settingAddress" class="w-full border rounded-lg p-2 text-sm">
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-medium mb-1">السجل التجاري</label>
-            <input type="text" id="settingCommReg" class="w-full border rounded-lg p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">التسجيل الضريبي</label>
-            <input type="text" id="settingTaxReg" class="w-full border rounded-lg p-2 text-sm">
-          </div>
-        </div>
-        <div>
-          <label class="block text-xs font-medium mb-1">مفتاح Gemini API Key (افتراضي)</label>
-          <input type="password" id="settingApiKey" class="w-full border rounded-lg p-2 text-sm">
-        </div>
-
-        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl text-sm">حفظ الإعدادات</button>
-      </form>
-    </section>
-
-  </main>
-
-  <!-- ورقة الطباعة المستقلة -->
-  <section id="printableInvoice" class="bg-white p-8 rounded-xl border border-slate-200 hidden">
-    <div class="border-b-2 border-slate-800 pb-4 mb-4 flex justify-between items-start">
-      <div>
-        <h2 class="text-2xl font-bold text-slate-900" id="printPharmName">صيدلية الجبلي</h2>
-        <p class="text-xs text-slate-600" id="printPharmDetails">شارع صلاح سالم - الباجور - المنوفية</p>
-        <p class="text-sm font-bold text-blue-800 mt-2" id="invCompany">الشركة: MetLife</p>
-      </div>
-      <div class="text-xs text-left">
-        <p><strong>التاريخ:</strong> <span id="invDate">-</span></p>
-        <p><strong>رقم التذكرة:</strong> <span id="invTicket">-</span></p>
-      </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4 text-sm mb-6 border p-4 rounded-lg bg-slate-50">
-      <p><strong>اسم المريض:</strong> <span id="invPatientName">-</span></p>
-      <p><strong>رقم الكارنيه:</strong> <span id="invCardNo">-</span></p>
-      <p><strong>الرقم القومي:</strong> <span id="invNationalId">-</span></p>
-      <p><strong>الهاتف:</strong> <span id="invPhone">-</span></p>
-      <p id="invApprovalRow" class="col-span-2 text-purple-800 font-bold hidden"><strong>موافقة ميدرايت:</strong> <span id="invApprovalNo">-</span></p>
-    </div>
 
-    <table class="w-full text-sm border-collapse border border-slate-300 mb-6">
-      <thead>
-        <tr class="bg-slate-100">
-          <th class="border p-2 text-right">#</th>
-          <th class="border p-2 text-right">اسم الدواء</th>
-          <th class="border p-2 text-center w-20">الكمية</th>
-          <th class="border p-2 text-left w-28">السعر</th>
-          <th class="border p-2 text-left w-28">الإجمالي</th>
-        </tr>
-      </thead>
-      <tbody id="invMedicinesTableBody"></tbody>
-      <tfoot>
-        <tr class="bg-slate-50 font-bold">
-          <td colspan="4" class="border p-2 text-right">الإجمالي الكلي:</td>
-          <td id="invTotal" class="border p-2 text-left">0.00 ج.م</td>
-        </tr>
-      </tfoot>
-    </table>
+    <!-- ============================================================== -->
+    <!-- كود الـ JavaScript للعمليات والذكاء الاصطناعي والطباعة        -->
+    <!-- ============================================================== -->
+    <script>
+        // إعداد صفوف ابتدائية عند فتح الصفحة
+        window.onload = function() {
+            addMedicineRow("بندول اكسترا 500 مجم", 2, 25);
+            addMedicineRow("أوجمنتين 1 جم", 1, 90);
+            calculateTotals();
+        };
 
-    <div class="grid grid-cols-2 gap-2 text-center text-sm font-bold bg-slate-100 p-3 rounded-lg">
-      <div>تحمل المريض: <span id="invPatientPaid">0.00</span> ج.م</div>
-      <div>مطلب الشركة: <span id="invCompanyPaid">0.00</span> ج.م</div>
-    </div>
-  </section>
-
-  <script>
-    // =========================================================
-    // إعدادات نموذج الذكاء الاصطناعي الافتراضي (Gemini Model Config)
-    // =========================================================
-    const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
-    const GEMINI_API_VERSION = 'v1beta';
-
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-    let invoices = JSON.parse(localStorage.getItem('pharmacy_invoices_v2')) || [];
-    let settings = JSON.parse(localStorage.getItem('pharmacy_settings_v2')) || {
-      pharmacyName: 'صيدلية الجبلي',
-      address: 'شارع صلاح سالم - الباجور - المنوفية',
-      commReg: '60961',
-      taxReg: '611509792',
-      apiKey: ''
-    };
-
-    let chartInstance = null;
-
-    document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('claimDate').valueAsDate = new Date();
-      document.getElementById('settingPharmacyName').value = settings.pharmacyName || '';
-      document.getElementById('settingAddress').value = settings.address || '';
-      document.getElementById('settingCommReg').value = settings.commReg || '';
-      document.getElementById('settingTaxReg').value = settings.taxReg || '';
-      document.getElementById('settingApiKey').value = settings.apiKey || '';
-      if(settings.apiKey) document.getElementById('apiKeyInput').value = settings.apiKey;
-      
-      toggleMedrightFields();
-      renderDashboard();
-    });
-
-    function toggleMedrightFields() {
-      const company = document.getElementById('companySelect').value;
-      const approvalDiv = document.getElementById('medrightApprovalDiv');
-      if (company === 'MedRight') {
-        approvalDiv.classList.remove('hidden');
-      } else {
-        approvalDiv.classList.add('hidden');
-      }
-    }
-
-    function switchTab(tabName) {
-      document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
-      document.getElementById(`page-${tabName}`).classList.remove('hidden');
-
-      document.querySelectorAll('nav button').forEach(btn => {
-        btn.classList.remove('bg-blue-600', 'text-white');
-        btn.classList.add('text-slate-400');
-      });
-      const activeBtn = document.getElementById(`nav-${tabName}`);
-      if(activeBtn) {
-        activeBtn.classList.add('bg-blue-600', 'text-white');
-        activeBtn.classList.remove('text-slate-400');
-      }
-
-      if(tabName === 'home') renderDashboard();
-      if(tabName === 'records') renderRecordsTable();
-      if(tabName === 'reports') renderReports();
-    }
-
-    function addMedicineRow(name = '', qty = 1, price = 0) {
-      const tbody = document.getElementById('medicinesTableBody');
-      const tr = document.createElement('tr');
-      tr.className = 'border-b hover:bg-slate-50';
-      tr.innerHTML = `
-        <td class="p-1 border"><input type="text" class="med-name w-full p-1 border rounded" value="${name}" placeholder="اسم الدواء"></td>
-        <td class="p-1 border"><input type="number" class="med-qty w-full p-1 border rounded text-center" value="${qty}" min="1" oninput="updateRowTotal(this)"></td>
-        <td class="p-1 border"><input type="number" step="0.01" class="med-price w-full p-1 border rounded text-left" value="${price}" oninput="updateRowTotal(this)"></td>
-        <td class="p-1 border"><input type="number" step="0.01" class="med-total w-full p-1 bg-slate-100 border rounded text-left font-bold" value="${(qty * price).toFixed(2)}" readonly></td>
-        <td class="p-1 border text-center"><button type="button" onclick="removeRow(this)" class="text-red-600 font-bold">✕</button></td>
-      `;
-      tbody.appendChild(tr);
-      recalculateOverallTotal();
-    }
-
-    function removeRow(btn) {
-      btn.closest('tr').remove();
-      recalculateOverallTotal();
-    }
-
-    function updateRowTotal(input) {
-      const row = input.closest('tr');
-      const qty = parseFloat(row.querySelector('.med-qty').value) || 0;
-      const price = parseFloat(row.querySelector('.med-price').value) || 0;
-      row.querySelector('.med-total').value = (qty * price).toFixed(2);
-      recalculateOverallTotal();
-    }
-
-    function recalculateOverallTotal() {
-      let sum = 0;
-      document.querySelectorAll('.med-total').forEach(input => sum += parseFloat(input.value) || 0);
-      document.getElementById('totalAmount').value = sum > 0 ? sum.toFixed(2) : '';
-      calculateInvoice();
-    }
-
-    function calculateInvoice() {
-      const total = parseFloat(document.getElementById('totalAmount').value) || 0;
-      const copayPct = parseFloat(document.getElementById('patientCopayPercent').value) || 0;
-      const patientPay = total * (copayPct / 100);
-      const companyPay = total - patientPay;
-
-      document.getElementById('patientPaid').value = patientPay.toFixed(2);
-      document.getElementById('companyPaid').value = companyPay.toFixed(2);
-    }
-
-    async function convertPdfToImageBase64(file) {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const page = await pdf.getPage(1);
-      const viewport = page.getViewport({ scale: 2.0 });
-
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-
-      await page.render({ canvasContext: context, viewport: viewport }).promise;
-      return canvas.toDataURL('image/png').split(',')[1];
-    }
-
-    function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = error => reject(error);
-      });
-    }
-
-    async function processPDFWithAI() {
-      const apiKey = document.getElementById('apiKeyInput').value || settings.apiKey;
-      const selectedModel = document.getElementById('modelSelect').value || DEFAULT_GEMINI_MODEL;
-      const fileInput = document.getElementById('pdfFileInput');
-      const btnText = document.getElementById('btnText');
-
-      if (!apiKey) {
-        alert('يرجى إدخال Gemini API Key أولاً!');
-        return;
-      }
-      if (!fileInput.files[0]) {
-        alert('يرجى اختيار صورة أو ملف PDF للروشتة!');
-        return;
-      }
-
-      btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحليل واستخراج البيانات...';
-
-      try {
-        const file = fileInput.files[0];
-        let base64Data = '';
-        let mimeType = 'image/png';
-
-        if (file.type === 'application/pdf') {
-          base64Data = await convertPdfToImageBase64(file);
-        } else {
-          base64Data = await fileToBase64(file);
-          mimeType = file.type;
+        // إضافة صف دواء جديد للجدول
+        function addMedicineRow(name = '', qty = 1, price = 0) {
+            const tbody = document.getElementById('medsBody');
+            const tr = document.createElement('tr');
+            
+            tr.innerHTML = `
+                <td><input type="text" class="med-name" value="${name}" placeholder="اسم الدواء"></td>
+                <td><input type="number" class="med-qty" value="${qty}" min="1" oninput="calculateTotals()"></td>
+                <td><input type="number" class="med-price" value="${price}" min="0" step="0.5" oninput="calculateTotals()"></td>
+                <td class="med-total">${(qty * price).toFixed(2)} ج.م</td>
+                <td><button type="button" class="btn-danger" onclick="removeRow(this)">✕</button></td>
+            `;
+            tbody.appendChild(tr);
+            calculateTotals();
         }
 
-        const promptText = `
-          أنت مساعد صيدلي خبير. استخرج البيانات التالية من صورة الروشتة أو المطالبة:
-          - patientName: اسم المريض
-          - ticketNo: رقم التذكرة أو المطالبة
-          - cardNo: رقم الكارنيه
-          - nationalId: الرقم القومي إن وجد
-          - isMonthly: true أو false (هل هي علاج شهري)
-          - medicines: مصفوفة تحتوي على (name, qty, price) لكل دواء.
-
-          تنبيه هام: يجب أن تكون الإجابة عبارة عن نص JSON فقط بدون أي مقدمات أو مؤخرات أو علامات markdown.
-          مثال للـ JSON المطلوب:
-          {
-            "patientName": "أحمد محمد",
-            "ticketNo": "12345",
-            "cardNo": "98765",
-            "nationalId": "",
-            "isMonthly": false,
-            "medicines": [
-              {"name": "Panadol", "qty": 1, "price": 20.0}
-            ]
-          }
-        `;
-
-        // بناء رابط الـ API بناءً على الموديل المختار
-        const apiUrl = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${selectedModel}:generateContent?key=${apiKey}`;
-
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: promptText },
-                { inline_data: { mime_type: mimeType, data: base64Data } }
-              ]
-            }]
-          })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || data.error) {
-          throw new Error(data.error?.message || `خطأ من السيرفر: ${response.status}`);
+        // حذف صف دواء
+        function removeRow(btn) {
+            btn.closest('tr').remove();
+            calculateTotals();
         }
 
-        if (!data.candidates || !data.candidates[0]) {
-          throw new Error("لم يتم استخراج أي بيانات، تأكد من وضوح الروشتة.");
+        // حساب الإجماليات والتحملات
+        function calculateTotals() {
+            const rows = document.querySelectorAll('#medsBody tr');
+            let subtotal = 0;
+
+            rows.forEach(row => {
+                const qty = parseFloat(row.querySelector('.med-qty').value) || 0;
+                const price = parseFloat(row.querySelector('.med-price').value) || 0;
+                const rowTotal = qty * price;
+                
+                row.querySelector('.med-total').innerText = rowTotal.toFixed(2) + ' ج.م';
+                subtotal += rowTotal;
+            });
+
+            const discount = parseFloat(document.getElementById('discountInput').value) || 0;
+            const companyPercent = parseFloat(document.getElementById('companySharePercent').value) || 0;
+
+            const netSubtotal = Math.max(0, subtotal - discount);
+            const companyShare = netSubtotal * (companyPercent / 100);
+            const patientShare = netSubtotal - companyShare;
+
+            document.getElementById('subtotalDisplay').innerText = subtotal.toFixed(2) + ' ج.م';
+            document.getElementById('discountDisplay').innerText = discount.toFixed(2) + ' ج.م';
+            document.getElementById('companyShareDisplay').innerText = companyShare.toFixed(2) + ' ج.م';
+            document.getElementById('patientShareDisplay').innerText = patientShare.toFixed(2) + ' ج.م';
+
+            return { subtotal, discount, companyShare, patientShare };
         }
 
-        let textResult = data.candidates[0].content.parts[0].text;
-        
-        const jsonMatch = textResult.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          throw new Error("لم يتمكن النظام من قراءة تنسيق البيانات المرجعة.");
+        // دالة تحضير وطباعة التذكرة / الفاتورة
+        function printReceipt() {
+            const totals = calculateTotals();
+
+            // 1. نقل بيانات الصيدلية للطباعة
+            document.getElementById('p-pharmacy-name').innerText = document.getElementById('pharmacyName').value || 'اسم الصيدلية';
+            document.getElementById('p-cr-no').innerText = document.getElementById('commercialRegister').value || '---';
+            document.getElementById('p-tax-no').innerText = document.getElementById('taxRegister').value || '---';
+
+            // 2. نقل بيانات المريض والتذكرة
+            document.getElementById('p-ticket-no').innerText = document.getElementById('ticketNo').value || 'غير محدد';
+            document.getElementById('p-patient-name').innerText = document.getElementById('patientName').value || 'غير محدد';
+            document.getElementById('p-card-no').innerText = document.getElementById('cardNo').value || 'غير محدد';
+            document.getElementById('p-company-name').innerText = document.getElementById('companyName').value || 'نقدي';
+            document.getElementById('p-date-time').innerText = new Date().toLocaleString('ar-EG');
+
+            // 3. نقل جدول الأدوية
+            const printTbody = document.getElementById('p-meds-list');
+            printTbody.innerHTML = '';
+
+            const rows = document.querySelectorAll('#medsBody tr');
+            if (rows.length === 0) {
+                printTbody.innerHTML = '<tr><td colspan="5">لا توجد أدوية مضافة</td></tr>';
+            } else {
+                rows.forEach((row, index) => {
+                    const name = row.querySelector('.med-name').value || 'دواء غير مسمى';
+                    const qty = row.querySelector('.med-qty').value || 1;
+                    const price = parseFloat(row.querySelector('.med-price').value) || 0;
+                    const total = (qty * price).toFixed(2);
+
+                    const pRow = `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td style="text-align: right;">${name}</td>
+                            <td>${qty}</td>
+                            <td>${price.toFixed(2)}</td>
+                            <td>${total}</td>
+                        </tr>
+                    `;
+                    printTbody.innerHTML += pRow;
+                });
+            }
+
+            // 4. نقل الحسابات المالية
+            document.getElementById('p-subtotal').innerText = totals.subtotal.toFixed(2) + ' ج.م';
+            document.getElementById('p-discount').innerText = totals.discount.toFixed(2) + ' ج.م';
+            document.getElementById('p-company-share').innerText = totals.companyShare.toFixed(2) + ' ج.م';
+            document.getElementById('p-patient-share').innerText = totals.patientShare.toFixed(2) + ' ج.م';
+
+            // 5. استدعاء أمر الطباعة المباشر
+            window.print();
         }
-        
-        const parsed = JSON.parse(jsonMatch[0]);
 
-        if (parsed.patientName) document.getElementById('patientName').value = parsed.patientName;
-        if (parsed.ticketNo) document.getElementById('ticketNo').value = parsed.ticketNo;
-        if (parsed.cardNo) document.getElementById('cardNo').value = parsed.cardNo;
-        if (parsed.nationalId) document.getElementById('nationalId').value = parsed.nationalId;
-        if (parsed.isMonthly !== undefined) document.getElementById('isMonthly').checked = parsed.isMonthly;
+        // دالة استدعاء Gemini API لتحليل الصور والتذاكر
+        async function analyzePrescription() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const fileInput = document.getElementById('prescriptionImage');
+            const statusDiv = document.getElementById('aiStatus');
 
-        document.getElementById('medicinesTableBody').innerHTML = '';
-        if (parsed.medicines && Array.isArray(parsed.medicines) && parsed.medicines.length > 0) {
-          parsed.medicines.forEach(m => addMedicineRow(m.name || '', m.qty || 1, m.price || 0));
-        } else {
-          addMedicineRow();
+            if (!apiKey) {
+                alert('يرجى إدخال مفتاح Gemini API أولاً!');
+                return;
+            }
+
+            if (fileInput.files.length === 0) {
+                alert('يرجى اختيار صورة التذكرة أو الروشتة!');
+                return;
+            }
+
+            statusDiv.innerText = '⏳ جاري قراءة التذكرة واستخراج الأدوية باستخدام الذكاء الاصطناعي...';
+
+            try {
+                const file = fileInput.files[0];
+                const base64Data = await convertFileToBase64(file);
+
+                // استخدام الموديل الحديث المستقر
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+                const promptText = `
+                قم بقراءة هذه الروشتة / التذكرة واستخرج منها قائمة الأدوية في صيغة JSON فقط بدون أي شرح أو كلام إضافي:
+                [
+                  {"name": "اسم الدواء", "qty": العدد, "price": السعر_المتوقع}
+                ]
+                `;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: promptText },
+                                {
+                                    inline_data: {
+                                        mime_type: file.type,
+                                        data: base64Data.split(',')[1]
+                                    }
+                                }
+                            ]
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    statusDiv.innerText = '❌ حدث خطأ من API: ' + data.error.message;
+                    return;
+                }
+
+                statusDiv.innerText = '✅ تم استخراج البيانات بنجاح!';
+
+                // قراءة الرد وتحويله كأدوية داخل الجدول
+                const rawText = data.candidates[0].content.parts[0].text;
+                try {
+                    const cleanJson = rawText.replace(/```json|```/g, '').trim();
+                    const meds = JSON.parse(cleanJson);
+                    
+                    document.getElementById('medsBody').innerHTML = ''; // تفريغ الجدول القديم
+                    meds.forEach(med => {
+                        addMedicineRow(med.name, med.qty || 1, med.price || 0);
+                    });
+                } catch (e) {
+                    console.log('النص المستخرج:', rawText);
+                    alert('تم استخراج البيانات ولكن يرجى مراجعة الجدول وتدقيقه.');
+                }
+
+            } catch (err) {
+                statusDiv.innerText = '❌ تعذر الاتصال بالخدمة: ' + err.message;
+            }
         }
 
-        recalculateOverallTotal();
-        alert('تم استخراج البيانات وتعبئتها في الفاتورة بنجاح!');
-
-      } catch (err) {
-        console.error("AI Error:", err);
-        alert('حدث خطأ أثناء قراءة البيانات: ' + err.message);
-      } finally {
-        btnText.innerHTML = '<i class="fa-solid fa-brain"></i> استخراج البيانات بالذكاء الاصطناعي';
-      }
-    }
-
-    function saveRecord() {
-      const editingId = document.getElementById('editingId').value;
-      const medicines = [];
-      document.querySelectorAll('#medicinesTableBody tr').forEach(row => {
-        medicines.push({
-          name: row.querySelector('.med-name').value,
-          qty: row.querySelector('.med-qty').value,
-          price: row.querySelector('.med-price').value,
-          total: row.querySelector('.med-total').value
-        });
-      });
-
-      const invoiceData = {
-        id: editingId ? editingId : Date.now().toString(),
-        patientName: document.getElementById('patientName').value,
-        ticketNo: document.getElementById('ticketNo').value,
-        cardNo: document.getElementById('cardNo').value,
-        nationalId: document.getElementById('nationalId').value,
-        patientPhone: document.getElementById('patientPhone').value,
-        claimDate: document.getElementById('claimDate').value,
-        company: document.getElementById('companySelect').value,
-        approvalNo: document.getElementById('approvalNo').value,
-        isMonthly: document.getElementById('isMonthly').checked,
-        totalAmount: parseFloat(document.getElementById('totalAmount').value) || 0,
-        patientCopayPercent: parseFloat(document.getElementById('patientCopayPercent').value) || 0,
-        patientPaid: parseFloat(document.getElementById('patientPaid').value) || 0,
-        companyPaid: parseFloat(document.getElementById('companyPaid').value) || 0,
-        medicines: medicines
-      };
-
-      if(editingId) {
-        const index = invoices.findIndex(i => i.id === editingId);
-        if(index !== -1) invoices[index] = invoiceData;
-      } else {
-        invoices.push(invoiceData);
-      }
-
-      localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
-      alert("تم حفظ الفاتورة بنجاح في قاعدة البيانات!");
-      resetForm();
-      switchTab('records');
-    }
-
-    function resetForm() {
-      document.getElementById('editingId').value = '';
-      document.getElementById('formTitle').innerText = 'إدخال فاتورة تأمين جديدة';
-      document.getElementById('claimForm').reset();
-      document.getElementById('medicinesTableBody').innerHTML = '';
-      document.getElementById('claimDate').valueAsDate = new Date();
-      calculateInvoice();
-    }
-
-    function renderRecordsTable() {
-      const tbody = document.getElementById('fullRecordsTableBody');
-      tbody.innerHTML = '';
-      invoices.forEach(inv => {
-        const tr = document.createElement('tr');
-        tr.className = 'border-b hover:bg-slate-50';
-        tr.innerHTML = `
-          <td class="p-3">${inv.claimDate}</td>
-          <td class="p-3 font-bold">${inv.patientName}</td>
-          <td class="p-3"><span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-semibold">${inv.company}</span></td>
-          <td class="p-3">${inv.ticketNo}</td>
-          <td class="p-3 font-bold">${inv.totalAmount.toFixed(2)} ج.م</td>
-          <td class="p-3 text-blue-700 font-bold">${inv.companyPaid.toFixed(2)} ج.م</td>
-          <td class="p-3 text-emerald-700 font-bold">${inv.patientPaid.toFixed(2)} ج.م</td>
-          <td class="p-3 text-center space-x-1 space-x-reverse">
-            <button onclick="editInvoice('${inv.id}')" class="text-blue-600 hover:text-blue-800 font-bold px-2"><i class="fa-solid fa-pen-to-square"></i> تعديل</button>
-            <button onclick="deleteInvoice('${inv.id}')" class="text-red-600 hover:text-red-800 font-bold px-2"><i class="fa-solid fa-trash"></i> حذف</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function editInvoice(id) {
-      const inv = invoices.find(i => i.id === id);
-      if(!inv) return;
-
-      document.getElementById('editingId').value = inv.id;
-      document.getElementById('formTitle').innerText = 'تعديل الفاتورة رقم: ' + inv.ticketNo;
-      document.getElementById('patientName').value = inv.patientName;
-      document.getElementById('ticketNo').value = inv.ticketNo;
-      document.getElementById('cardNo').value = inv.cardNo;
-      document.getElementById('nationalId').value = inv.nationalId;
-      document.getElementById('patientPhone').value = inv.patientPhone;
-      document.getElementById('claimDate').value = inv.claimDate;
-      document.getElementById('companySelect').value = inv.company;
-      document.getElementById('approvalNo').value = inv.approvalNo || '';
-      document.getElementById('isMonthly').checked = inv.isMonthly;
-      document.getElementById('patientCopayPercent').value = inv.patientCopayPercent;
-
-      toggleMedrightFields();
-
-      const tbody = document.getElementById('medicinesTableBody');
-      tbody.innerHTML = '';
-      if(inv.medicines) {
-        inv.medicines.forEach(m => addMedicineRow(m.name, m.qty, m.price));
-      }
-      switchTab('newInvoice');
-    }
-
-    function deleteInvoice(id) {
-      if(confirm('هل أنت تأكد من حذف هذه الفاتورة؟')) {
-        invoices = invoices.filter(i => i.id !== id);
-        localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
-        renderRecordsTable();
-      }
-    }
-
-    function filterRecords() {
-      const query = document.getElementById('searchRecordInput').value.toLowerCase();
-      const rows = document.querySelectorAll('#fullRecordsTableBody tr');
-      rows.forEach(row => {
-        const text = row.innerText.toLowerCase();
-        row.style.display = text.includes(query) ? '' : 'none';
-      });
-    }
-
-    function renderDashboard() {
-      const totalCompany = invoices.reduce((acc, cur) => acc + (cur.companyPaid || 0), 0);
-      const totalPatient = invoices.reduce((acc, cur) => acc + (cur.patientPaid || 0), 0);
-      const monthlyCount = invoices.filter(i => i.isMonthly).length;
-
-      document.getElementById('dashTotalCompany').innerText = totalCompany.toFixed(2) + ' ج.م';
-      document.getElementById('dashTotalPatient').innerText = totalPatient.toFixed(2) + ' ج.م';
-      document.getElementById('dashCount').innerText = invoices.length;
-      document.getElementById('dashMonthlyCount').innerText = monthlyCount;
-
-      const companyData = {};
-      invoices.forEach(i => {
-        companyData[i.company] = (companyData[i.company] || 0) + i.companyPaid;
-      });
-
-      const ctx = document.getElementById('companyChart').getContext('2d');
-      if(chartInstance) chartInstance.destroy();
-      chartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: Object.keys(companyData),
-          datasets: [{
-            label: 'إجمالي مطالبات الشركة (ج.م)',
-            data: Object.values(companyData),
-            backgroundColor: '#2563eb'
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
-    }
-
-    function renderReports() {
-      const grid = document.getElementById('companyReportsGrid');
-      grid.innerHTML = '';
-      const companies = ['MetLife', 'MedRight', 'AXA'];
-
-      companies.forEach(comp => {
-        const compInvoices = invoices.filter(i => i.company === comp);
-        const total = compInvoices.reduce((acc, cur) => acc + cur.companyPaid, 0);
-
-        const card = document.createElement('div');
-        card.className = 'bg-white p-5 rounded-2xl shadow-sm border border-slate-200';
-        card.innerHTML = `
-          <h3 class="font-bold text-lg border-b pb-2 mb-3 text-slate-800">${comp}</h3>
-          <p class="text-xs text-slate-500">عدد المطالبات: <span class="font-bold text-slate-800">${compInvoices.length}</span></p>
-          <p class="text-xs text-slate-500 mt-1">المبلغ المطلوب: <span class="font-bold text-blue-600 text-base">${total.toFixed(2)} ج.م</span></p>
-        `;
-        grid.appendChild(card);
-      });
-    }
-
-    function saveSettings() {
-      settings.pharmacyName = document.getElementById('settingPharmacyName').value;
-      settings.address = document.getElementById('settingAddress').value;
-      settings.commReg = document.getElementById('settingCommReg').value;
-      settings.taxReg = document.getElementById('settingTaxReg').value;
-      settings.apiKey = document.getElementById('settingApiKey').value;
-
-      localStorage.setItem('pharmacy_settings_v2', JSON.stringify(settings));
-      if(settings.apiKey) document.getElementById('apiKeyInput').value = settings.apiKey;
-      alert('تم حفظ الإعدادات بنجاح!');
-    }
-
-    function printCurrentForm() {
-      document.getElementById('printPharmName').innerText = settings.pharmacyName || 'صيدلية الجبلي';
-      document.getElementById('printPharmDetails').innerText = settings.address || '';
-      document.getElementById('invCompany').innerText = 'الشركة: ' + document.getElementById('companySelect').value;
-      document.getElementById('invDate').innerText = document.getElementById('claimDate').value;
-      document.getElementById('invTicket').innerText = document.getElementById('ticketNo').value;
-      document.getElementById('invPatientName').innerText = document.getElementById('patientName').value;
-      document.getElementById('invCardNo').innerText = document.getElementById('cardNo').value;
-      document.getElementById('invNationalId').innerText = document.getElementById('nationalId').value || '-';
-      document.getElementById('invPhone').innerText = document.getElementById('patientPhone').value || '-';
-
-      const company = document.getElementById('companySelect').value;
-      const approvalRow = document.getElementById('invApprovalRow');
-      if (company === 'MedRight') {
-        approvalRow.classList.remove('hidden');
-        document.getElementById('invApprovalNo').innerText = document.getElementById('approvalNo').value || '-';
-      } else {
-        approvalRow.classList.add('hidden');
-      }
-
-      const invTbody = document.getElementById('invMedicinesTableBody');
-      invTbody.innerHTML = '';
-      let index = 1;
-      document.querySelectorAll('#medicinesTableBody tr').forEach(row => {
-        const name = row.querySelector('.med-name').value;
-        const qty = row.querySelector('.med-qty').value;
-        const price = row.querySelector('.med-price').value;
-        const total = row.querySelector('.med-total').value;
-
-        if(name) {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="border p-2 text-right">${index++}</td>
-            <td class="border p-2 text-right">${name}</td>
-            <td class="border p-2 text-center">${qty}</td>
-            <td class="border p-2 text-left">${price}</td>
-            <td class="border p-2 text-left">${total}</td>
-          `;
-          invTbody.appendChild(tr);
+        // تحويل الملف إلى Base64
+        function convertFileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
         }
-      });
-
-      document.getElementById('invTotal').innerText = (parseFloat(document.getElementById('totalAmount').value) || 0).toFixed(2) + ' ج.م';
-      document.getElementById('invPatientPaid').innerText = (parseFloat(document.getElementById('patientPaid').value) || 0).toFixed(2);
-      document.getElementById('invCompanyPaid').innerText = (parseFloat(document.getElementById('companyPaid').value) || 0).toFixed(2);
-
-      window.print();
-    }
-  </script>
+    </script>
 </body>
 </html>
