@@ -104,7 +104,7 @@
 
       <!-- القراءة الذكية بواسطة Gemini AI -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-        <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-blue-600"></i> القراءة الذكية للروشتة (Gemini 3.6 AI)</h3>
+        <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-blue-600"></i> القراءة الذكية للروشتة (Gemini AI)</h3>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label class="block text-xs font-medium mb-1">شركة التأمين</label>
@@ -446,7 +446,7 @@
       });
     }
 
-    // الدالة المعدلة خصيصاً لاستدعاء موديل gemini-3.6
+    // الدالة المعدلة لمعالجة واستخراج الـ JSON مباشرة في الحقول
     async function processPDFWithAI() {
       const apiKey = document.getElementById('apiKeyInput').value || settings.apiKey;
       const fileInput = document.getElementById('pdfFileInput');
@@ -461,7 +461,7 @@
         return;
       }
 
-      btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحليل مع Gemini 3.6...';
+      btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحليل واستخراج البيانات...';
 
       try {
         const file = fileInput.files[0];
@@ -484,21 +484,21 @@
           - isMonthly: true أو false (هل هي علاج شهري)
           - medicines: مصفوفة تحتوي على (name, qty, price) لكل دواء.
 
-          أرجع الإجابة بتنسيق JSON فقط بالشكل التالي دون أي نصوص إضافية:
+          تنبيه هام: يجب أن تكون الإجابة عبارة عن نص JSON فقط بدون أي مقدمات أو مؤخرات أو علامات markdown.
+          مثال للـ JSON المطلوب:
           {
-            "patientName": "",
-            "ticketNo": "",
-            "cardNo": "",
+            "patientName": "أحمد محمد",
+            "ticketNo": "12345",
+            "cardNo": "98765",
             "nationalId": "",
             "isMonthly": false,
             "medicines": [
-              {"name": "", "qty": 1, "price": 0.0}
+              {"name": "Panadol", "qty": 1, "price": 20.0}
             ]
           }
         `;
 
-        // إرسال الطلب لموديل gemini-3.6
-        let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -511,22 +511,6 @@
           })
         });
 
-        // لو الـ API رجع 404 بسبب تغيير المسارات في السيرفر، بيحول تلقائياً للنسخة الاحتياطية
-        if (response.status === 404) {
-          response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-3.6:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { text: promptText },
-                  { inline_data: { mime_type: mimeType, data: base64Data } }
-                ]
-              }]
-            })
-          });
-        }
-
         const data = await response.json();
 
         if (!response.ok || data.error) {
@@ -534,28 +518,40 @@
         }
 
         if (!data.candidates || !data.candidates[0]) {
-          throw new Error("لم يتم إرجاع أي نتائج، تأكد من صحة الـ API Key والصورة.");
+          throw new Error("لم يتم استخراج أي بيانات، تأكد من وضوح الروشتة.");
         }
 
-        const textResult = data.candidates[0].content.parts[0].text;
-        const cleanJson = textResult.replace(/```json/g, '').replace(/```/g, '').trim();
-        const parsed = JSON.parse(cleanJson);
+        let textResult = data.candidates[0].content.parts[0].text;
+        
+        // استخراج نص الـ JSON بدقة لو الرد جاي جوه Markdown أو كلام جانبي
+        const jsonMatch = textResult.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          throw new Error("لم يتمكن النظام من قراءة تنسيق البيانات المرجعة.");
+        }
+        
+        const parsed = JSON.parse(jsonMatch[0]);
 
+        // تعبئة البيانات في الحقول
         if (parsed.patientName) document.getElementById('patientName').value = parsed.patientName;
         if (parsed.ticketNo) document.getElementById('ticketNo').value = parsed.ticketNo;
         if (parsed.cardNo) document.getElementById('cardNo').value = parsed.cardNo;
         if (parsed.nationalId) document.getElementById('nationalId').value = parsed.nationalId;
         if (parsed.isMonthly !== undefined) document.getElementById('isMonthly').checked = parsed.isMonthly;
 
+        // تعبئة جدول الأدوية وحساب المبالغ
         document.getElementById('medicinesTableBody').innerHTML = '';
-        if (parsed.medicines && parsed.medicines.length > 0) {
-          parsed.medicines.forEach(m => addMedicineRow(m.name, m.qty || 1, m.price || 0));
+        if (parsed.medicines && Array.isArray(parsed.medicines) && parsed.medicines.length > 0) {
+          parsed.medicines.forEach(m => addMedicineRow(m.name || '', m.qty || 1, m.price || 0));
+        } else {
+          addMedicineRow(); // إضافة صف فارغ لو مفيش أدوية اتعلمت
         }
 
-        alert('تم قراءة الروشتة بواسطة Gemini 3.6 بنجاح!');
+        recalculateOverallTotal();
+        alert('تم استخراج البيانات وتعبئتها في الفاتورة بنجاح!');
+
       } catch (err) {
-        console.error(err);
-        alert('حدث خطأ أثناء معالجة الملف: ' + err.message);
+        console.error("AI Error:", err);
+        alert('حدث خطأ أثناء قراءة البيانات: ' + err.message);
       } finally {
         btnText.innerHTML = '<i class="fa-solid fa-brain"></i> استخراج البيانات بالذكاء الاصطناعي';
       }
