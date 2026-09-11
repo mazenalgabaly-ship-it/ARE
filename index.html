@@ -6,7 +6,27 @@
     <title>نظام إدارة وتدقيق الفواتير - الصيدلية</title>
     <!-- خط القاهرة -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
+    <style/* إخفاء منطقة الطباعة أثناء التصفح العادي */
+#print-area {
+    display: none !important;
+}
+
+/* إظهار الفاتورة فقط عند الطباعة وإخفاء باقي الصفحة */
+@media print {
+    body > *:not(#print-area) {
+        display: none !important;
+    }
+    #print-area {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: #fff;
+        color: #000;
+        direction: rtl;
+    }
+}>
         :root {
             --primary: #2563eb;
             --primary-hover: #1d4ed8;
