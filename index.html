@@ -1,1038 +1,547 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { initializeApp } from 'firebase/app';
+import React, { useState, useEffect, useMemo } from "react";
+import { initializeApp } from "firebase/app";
 import {
   getAuth,
+  onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  updateProfile,
-  updatePassword,
   sendPasswordResetEmail,
-  signInAnonymously,
-  signInWithCustomToken
-} from 'firebase/auth';
+  signOut,
+  updateProfile,
+} from "firebase/auth";
 import {
   getFirestore,
   collection,
   doc,
-  setDoc,
+  onSnapshot,
+  query,
+  orderBy,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
-  onSnapshot
-} from 'firebase/firestore';
+  serverTimestamp,
+  enableIndexedDbPersistence,
+} from "firebase/firestore";
 import {
   LayoutDashboard,
-  FilePlus2,
+  FilePlus,
   History,
   BarChart3,
-  CalendarClock,
+  Repeat,
   Settings,
   LogOut,
-  Upload,
-  FileText,
-  CheckCircle2,
-  AlertTriangle,
   Printer,
-  Download,
-  Search,
+  Upload,
+  AlertTriangle,
   Plus,
   Trash2,
+  Save,
+  Search,
+  Download,
   Edit3,
   Eye,
-  X,
-  ShieldCheck,
+  CheckCircle2,
   Building2,
-  Phone,
-  CreditCard,
-  User,
-  Calendar,
-  Sparkles,
-  RefreshCw,
-  ArrowUpRight,
-  Lock,
-  Mail,
-  KeyRound,
-  Database,
-  FileSpreadsheet,
-  Menu,
-  Check,
-  Info,
-  HeartPulse,
-  Pill,
-  Receipt
-} from 'lucide-react';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  AreaChart,
-  Area
-} from 'recharts';
+  ShieldCheck,
+  X,
+} from "lucide-react";
 
 // ============================================================================
-// تهيئة Firebase والمصادقة وقاعدة البيانات السحابية
+// 1. إعدادات الاتصال السحابي (Firebase Config)
+// استبدل القيم التالية ببيانات مشروعك من لوحة تحكم Firebase أو ملف .env
 // ============================================================================
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-  apiKey: "demo-key",
-  authDomain: "demo.firebaseapp.com",
-  projectId: "demo-project"
+const firebaseConfig = {
+  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY || "YOUR_FIREBASE_API_KEY",
+  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || "YOUR_PROJECT.firebaseapp.com",
+  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID || "YOUR_PROJECT_ID",
+  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || "YOUR_PROJECT.appspot.com",
+  messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "YOUR_SENDER_ID",
+  appId: import.meta.env?.VITE_FIREBASE_APP_ID || "YOUR_APP_ID",
 };
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'el-gabaly-pharmacy';
+enableIndexedDbPersistence(db).catch(() => {});
 
 // ============================================================================
-// ثوابت وإعدادات النظام الافتراضية
+// 2. دوال التحليل والحسابات المالية (Parsers & Financial Calculators)
 // ============================================================================
-const COMPANIES = [
-  { id: 'AXA', name: 'AXA (أكسا)', color: '#1d4ed8', bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-  { id: 'MetLife', name: 'MetLife (ميتلايف)', color: '#047857', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-  { id: 'MedRight', name: 'MedRight (ميدرايت)', color: '#b45309', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' }
-];
 
-const DEFAULT_SETTINGS = {
-  pharmacyName: 'صيدلية الجبلي',
-  pharmacySubtitle: 'لخدمات التأمين الصحي وصرف الأدوية المعتمدة',
-  address: 'شارع الجمهورية الرئيسي - بجوار المركز الطبي',
-  phone: '01000000000 / 0220000000',
-  commercialReg: '145892',
-  taxCard: '409-882-119',
-  headerNote: 'نشكركم لثقتكم في صيدلية الجبلي - نتمنى لكم دوام الصحة والعافية',
-  footerNote: 'تُعتمد هذه الفاتورة لأغراض المطالبات التأمينية والمراجعة المحاسبية لصيدلية الجبلي',
-  logoUrl: '',
-  defaultDiscountRate: 10, // نسبة الخصم الافتراضية %
-  defaultCopayRate: 10,    // نسبة تحمل المريض الافتراضية %
-  profitMarginRate: 18,    // هامش صافي الربح التقديري بعد الخصم %
-  showProfitOnPrint: false,
-  customApiKey: '',
-  customApiEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent'
-};
-
-// ============================================================================
-// دوال مساعدة (Parsing، تنسيق الأرقام، معالجة MedRight)
-// ============================================================================
-function formatCurrency(num) {
-  const n = Number(num) || 0;
-  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function getTodayISO() {
-  return new Date().toISOString().split('T')[0];
-}
-
-function getNextMonthISO(dateStr) {
-  const base = dateStr ? new Date(dateStr) : new Date();
-  if (isNaN(base.getTime())) return getTodayISO();
-  base.setMonth(base.getMonth() + 1);
-  return base.toISOString().split('T')[0];
-}
-
-// معالج ذكي لصيغة الكميات ذات الشرطة في MedRight (مثال: 2-3 => 2 علب و 3 أشرطة)
-function parseMedRightDashQuantity(rawQtyStr, fallbackBoxes = 1, fallbackStrips = 0) {
-  if (!rawQtyStr) return { boxes: Number(fallbackBoxes) || 0, strips: Number(fallbackStrips) || 0 };
-  const cleaned = String(rawQtyStr).trim().replace(/[–—]/g, '-');
-  const dashMatch = cleaned.match(/^(\d+)\s*-\s*(\d+)$/);
+/**
+ * تحليل صيغة كميات MedRight مثل "2-3":
+ * شمال الشرطة = عدد العلب (boxes)
+ * يمين الشرطة = عدد الأشرطة (strips)
+ */
+function parseMedRightQuantity(input) {
+  if (!input) return { boxes: 1, strips: 0 };
+  const str = String(input).trim();
+  const dashMatch = str.match(/^(\d+)\s*-\s*(\d+)$/);
   if (dashMatch) {
-    // الرقم على يسار الشرطة = عدد العلب، والرقم على يمين الشرطة = عدد الأشرطة
     return {
       boxes: parseInt(dashMatch[1], 10),
-      strips: parseInt(dashMatch[2], 10)
+      strips: parseInt(dashMatch[2], 10),
     };
   }
-  const singleNum = parseInt(cleaned, 10);
-  if (!isNaN(singleNum)) {
-    return { boxes: singleNum, strips: Number(fallbackStrips) || 0 };
-  }
-  return { boxes: Number(fallbackBoxes) || 0, strips: Number(fallbackStrips) || 0 };
+  const singleNum = parseInt(str, 10);
+  return {
+    boxes: isNaN(singleNum) ? 1 : singleNum,
+    strips: 0,
+  };
 }
 
-// تنظيف اسم الدواء في MedRight حتى لا تلتصق به صيغة الكمية مثل "Panadol 2-3"
-function cleanMedRightDrugName(name) {
-  if (!name) return '';
-  return String(name).replace(/\s+\d+\s*[-–—]\s*\d+\s*$/, '').trim();
+/**
+ * توحيد وتنظيف البيانات المستخرجة من الـ OCR حسب قواعد كل شركة
+ */
+function normalizeExtractedData(rawData, company) {
+  const items = (rawData.items || []).map((item, idx) => {
+    let boxes = Number(item.boxes) || 0;
+    let strips = Number(item.strips) || 0;
+
+    if (company === "MedRight" && item.rawQuantity && String(item.rawQuantity).includes("-")) {
+      const parsedQty = parseMedRightQuantity(item.rawQuantity);
+      boxes = parsedQty.boxes;
+      strips = parsedQty.strips;
+    }
+
+    const cleanName = String(item.name || "")
+      .replace(/\s+\d+\s*-\s*\d+$/, "")
+      .trim();
+
+    const unitPrice = Number(item.unitPrice) || 0;
+    const stripsPerBox = Number(item.stripsPerBox) || 1;
+    const effectiveQty = boxes + (strips > 0 ? strips / stripsPerBox : 0);
+    const totalPrice = Number(item.totalPrice) || Number((unitPrice * effectiveQty).toFixed(2));
+
+    return {
+      id: `item_${Date.now()}_${idx}`,
+      name: cleanName,
+      boxes,
+      strips,
+      stripsPerBox,
+      unitPrice,
+      totalPrice,
+    };
+  });
+
+  return {
+    company,
+    patientName: rawData.patientName || "",
+    cardNumber: rawData.cardNumber || "",
+    ticketNumber: company === "MedRight" ? rawData.ticketNumber || "" : "",
+    approvalNumber: company === "MedRight" ? rawData.approvalNumber || "" : "",
+    phone: rawData.phone || "",
+    nationalId: rawData.nationalId || "",
+    claimDate: rawData.claimDate || new Date().toISOString().split("T")[0],
+    discountAmount: Number(rawData.discountAmount) || 0,
+    patientShare: Number(rawData.patientShare) || 0,
+    items,
+    warnings: Array.isArray(rawData.warnings) ? rawData.warnings : [],
+  };
 }
 
-// دالة استدعاء Gemini API لاستخراج البيانات من الصور وملفات PDF
-async function extractDocumentWithGemini({ fileBase64, mimeType, company, customApiKey, customApiEndpoint }) {
-  const apiKey = customApiKey?.trim() || "";
-  const endpoint = customApiEndpoint?.trim() || "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent";
-  const url = `${endpoint}?key=${apiKey}`;
+/**
+ * محرك الحسابات المالية الموحد لصيدلية الجبلي
+ */
+function calculateInvoiceFinancials(items = [], financials = {}, settings = {}) {
+  const grossTotal = items.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0);
 
-  let companySpecificRules = "";
-  if (company === 'MetLife') {
-    companySpecificRules = `
-    قواعد صارمة لشركة MetLife (ميتلايف):
-    - استخرج رقم الكارنيه (cardNumber) حصريًا من خانة "Staff" أو "Staff ID" أو "Staff No".
-    - ممنوع منعًا باتًا استخدام رقم "Member" أو "Member ID" كرقم كارنيه! تجاهل خانة Member تمامًا.
-    - حقول ticketNumber و approvalNumber يجب أن تكون فارغة "".
-    `;
-  } else if (company === 'MedRight') {
-    companySpecificRules = `
-    قواعد صارمة لشركة MedRight (ميدرايت):
-    - استخرج رقم التذكرة (ticketNumber) ورقم الموافقة (approvalNumber) بدقة.
-    - استخرج رقم الكارنيه (cardNumber) من خانة رقم العضوية/الكارنيه المعتمدة في مستند MedRight.
-    - قاعدة الكميات الخاصة بـ MedRight (مهمة جدًا):
-      عندما تظهر كمية الدواء على هيئة رقمين بينهما شرطة مثل "2-3" أو "1-2" أو "3-1":
-      * الرقم الموجود على يسار الشرطة = عدد العلب (boxes).
-      * الرقم الموجود على يمين الشرطة = عدد الأشرطة (strips).
-      * مثال: "2-3" تعني boxes = 2 و strips = 3.
-      * مثال: "1-2" تعني boxes = 1 و strips = 2.
-      * ضع النص الأصلي للكمية في rawQuantity، ولا تدمج هذه الأرقام أو الشرطة في اسم الدواء (drugName).
-    `;
-  } else {
-    companySpecificRules = `
-    قواعد صارمة لشركة AXA (أكسا):
-    - استخرج رقم الكارنيه (cardNumber) من خانة رقم العضوية / Policy / Card Number.
-    - حقول ticketNumber و approvalNumber تكون فارغة "" إلا إذا وجدت صراحة.
-    `;
+  const discountRate = Number(financials.discountRate ?? settings.defaultDiscountRate ?? 0);
+  const discountAmount =
+    financials.discountAmount !== undefined && financials.discountAmount !== ""
+      ? Number(financials.discountAmount)
+      : Number(((grossTotal * discountRate) / 100).toFixed(2));
+
+  const patientShare = Number(financials.patientShare) || 0;
+
+  // المطلوب من الشركة = إجمالي الأدوية - خصم - تحمل المريض
+  const companyDue = Math.max(0, Number((grossTotal - discountAmount - patientShare).toFixed(2)));
+
+  // صافي الربح بناءً على هامش الربح المحدد في الإعدادات
+  const baseMarginRate = Number(settings.pharmacyProfitMargin ?? 20) / 100;
+  const netProfit = Number((grossTotal * baseMarginRate - discountAmount).toFixed(2));
+
+  return {
+    grossTotal: Number(grossTotal.toFixed(2)),
+    discountAmount: Number(discountAmount.toFixed(2)),
+    patientShare: Number(patientShare.toFixed(2)),
+    companyDue,
+    netProfit,
+  };
+}
+
+/**
+ * استدعاء Gemini API لتحليل الروشتات والموافقات الطبية
+ */
+async function analyzeDocumentWithAI({ fileBase64, mimeType, company, apiKey }) {
+  if (!apiKey) {
+    throw new Error("يرجى إدخال مفتاح Gemini API في صفحة الإعدادات أولاً لتشغيل القارئ الذكي.");
   }
 
-  const systemInstruction = `
-  أنت نظام OCR وذكاء اصطناعي متخصص في قراءة مستندات وروشتات وموافقات التأمين الصحي لصيدلية الجبلي.
-  الشركة المحددة حاليًا هي: ${company}.
-  ${companySpecificRules}
-  قواعد عامة صارمة:
-  1. استخرج جميع الأدوية بالترتيب الدقيق دون دمج صنفين أو إسقاط أي دواء.
-  2. لا تخمّن أي بيانات أو أرقام غير موجودة أو غير واضحة؛ اترك الحقل فارغًا "" وأضف ملاحظة في lowConfidenceFields.
-  3. إذا وجدت في المستند قيم مالية (الخصم discountAmount، تحمل المريض patientShareAmount، تحمل الشركة companyShareAmount) استخرجها، وإلا اجعلها null.
+  const companyRules = {
+    MetLife: `
+      قواعد صارمة لشركة MetLife:
+      1. استخرج رقم الكارنيه (cardNumber) حصريًا من خانة "Staff" أو "Staff ID".
+      2. ممنوع منعًا باتًا استخدام رقم "Member" أو "Member ID" كرقم كارنيه. إذا لم تجد خانة Staff اترك cardNumber فارغًا وأضف تنبيهًا في warnings.
+      3. حقول ticketNumber و approvalNumber يجب أن تكون فارغة "".
+    `,
+    MedRight: `
+      قواعد صارمة لشركة MedRight:
+      1. استخرج رقم التذكرة (ticketNumber) ورقم الموافقة (approvalNumber) بدقة.
+      2. قاعدة كميات الأدوية ذات الشرطة:
+         إذا ظهرت الكمية على هيئة رقمين بينهما شرطة مثل "2-3" أو "1-2":
+         - الرقم الموجود على شمال الشرطة = عدد العلب (boxes).
+         - الرقم الموجود على يمين الشرطة = عدد الأشرطة (strips).
+         مثال: "2-3" تعني boxes: 2, strips: 3. لا تعكس الرقمين ولا تدمج الشرطة في اسم الدواء.
+    `,
+    AXA: `
+      قواعد صارمة لشركة AXA:
+      1. استخرج رقم الكارنيه (cardNumber) من خانة رقم العضوية / Card No.
+      2. حقول ticketNumber و approvalNumber يجب أن تكون فارغة "".
+    `,
+  };
+
+  const prompt = `
+    أنت نظام OCR طبي ومحاسبي فائق الدقة لصيدلية الجبلي.
+    حلل مستند التأمين المرفق لشركة (${company}) واستخرج البيانات بصيغة JSON مطابقة تمامًا للهيكل التالي.
+    قاعدة ذهبية: لا تخمّن أي رقم أو بيان غير واضح. إذا كان الحقل غير موجود أو غير مقروء بوضوح، اتركه فارغًا "" أو 0 وأضف رسالة في warnings.
+
+    ${companyRules[company] || ""}
+
+    الهيكل المطلوب (JSON):
+    {
+      "patientName": "string",
+      "cardNumber": "string",
+      "ticketNumber": "string",
+      "approvalNumber": "string",
+      "phone": "string",
+      "nationalId": "string",
+      "claimDate": "YYYY-MM-DD",
+      "discountAmount": 0,
+      "patientShare": 0,
+      "items": [
+        {
+          "name": "اسم الدواء والتركيز بدون أرقام الكمية",
+          "rawQuantity": "النص الأصلي للكمية مثل 2-3",
+          "boxes": 1,
+          "strips": 0,
+          "unitPrice": 0,
+          "totalPrice": 0
+        }
+      ],
+      "warnings": ["تنبيهات حول أي بيانات غير واضحة"]
+    }
   `;
 
-  const userPrompt = `حلل مستند التأمين المرفق لشركة (${company}) واستخرج بيانات المريض والأدوية والمبالغ بدقة وفق المخطط المحدد.`;
-
-  const payload = {
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: userPrompt },
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
           {
-            inlineData: {
-              mimeType: mimeType,
-              data: fileBase64
-            }
-          }
-        ]
-      }
-    ],
-    systemInstruction: {
-      parts: [{ text: systemInstruction }]
-    },
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: "OBJECT",
-        properties: {
-          patientName: { type: "STRING" },
-          cardNumber: { type: "STRING" },
-          ticketNumber: { type: "STRING" },
-          approvalNumber: { type: "STRING" },
-          phone: { type: "STRING" },
-          nationalId: { type: "STRING" },
-          claimDate: { type: "STRING" },
-          discountAmount: { type: "NUMBER", nullable: true },
-          patientShareAmount: { type: "NUMBER", nullable: true },
-          companyShareAmount: { type: "NUMBER", nullable: true },
-          medications: {
-            type: "ARRAY",
-            items: {
-              type: "OBJECT",
-              properties: {
-                name: { type: "STRING" },
-                concentration: { type: "STRING" },
-                rawQuantity: { type: "STRING" },
-                boxes: { type: "NUMBER" },
-                strips: { type: "NUMBER" },
-                unitPrice: { type: "NUMBER" }
-              },
-              required: ["name", "boxes", "strips"]
-            }
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: fileBase64 } },
+            ],
           },
-          lowConfidenceFields: {
-            type: "ARRAY",
-            items: { type: "STRING" }
-          },
-          extractionNotes: { type: "STRING" }
-        },
-        required: ["patientName", "cardNumber", "medications", "lowConfidenceFields"]
-      }
+        ],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.1 },
+      }),
     }
-  };
+  );
 
-  let lastError = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errText}`);
-      }
-      const result = await response.json();
-      const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) throw new Error("لم يتم استلام نص من محرك الذكاء الاصطناعي.");
-      return JSON.parse(text);
-    } catch (err) {
-      lastError = err;
-      await new Promise((res) => setTimeout(res, 1000 * Math.pow(2, attempt)));
-    }
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.error?.message || "فشل الاتصال بخدمة التحليل الذكي.");
   }
-  throw lastError || new Error("تعذرت قراءة المستند.");
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("لم يتمكن النظام من استخراج نص من المستند.");
+
+  return JSON.parse(text);
 }
 
 // ============================================================================
-// المكون الرئيسي للتطبيق
+// 3. المكون الرئيسي للتطبيق (Main Application)
 // ============================================================================
 export default function App() {
-  // حالة المصادقة والمستخدم
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [authMode, setAuthMode] = useState('login'); // login | register | reset
-  const [authForm, setAuthForm] = useState({ username: '', email: '', password: '' });
-  const [authError, setAuthError] = useState('');
-  const [authMessage, setAuthMessage] = useState('');
-  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState("dashboard");
 
-  // حالة التنقل والواجهة
-  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard | create | history | reports | monthly | settings
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [toast, setToast] = useState(null);
-
-  // البيانات السحابية المتزامنة من Firestore
+  // البيانات السحابية المتزامنة لحظيًا عبر جميع الأجهزة
   const [invoices, setInvoices] = useState([]);
-  const [monthlyPlans, setMonthlyPlans] = useState([]);
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [dataLoading, setDataLoading] = useState(false);
+  const [treatments, setTreatments] = useState([]);
+  const [settings, setSettings] = useState({
+    name: "صيدلية الجبلي",
+    address: "",
+    phone: "",
+    commercialReg: "",
+    taxReg: "",
+    footerNote: "شكراً لتعاملكم مع صيدلية الجبلي",
+    pharmacyProfitMargin: 20,
+    defaultDiscountRate: 0,
+    geminiApiKey: import.meta.env?.VITE_GEMINI_API_KEY || "",
+  });
 
-  // نافذة معاينة وطباعة الفاتورة
+  // حالات التنقل والمعاينة والتعديل
   const [previewInvoice, setPreviewInvoice] = useState(null);
   const [editingInvoice, setEditingInvoice] = useState(null);
-  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState(null);
+  const [prefillTreatment, setPrefillTreatment] = useState(null);
+  const [toast, setToast] = useState(null);
 
-  // مسودة الفاتورة الجديدة (عند النقل من العلاج الشهري أو التعديل)
-  const [draftFromMonthly, setDraftFromMonthly] = useState(null);
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type, id: Date.now() });
-    setTimeout(() => {
-      setToast((prev) => (prev && prev.message === message ? null : prev));
-    }, 4500);
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
   };
 
-  // 1. مراقبة حالة تسجيل الدخول (Firebase Auth)
+  // مراقبة حالة تسجيل الدخول
   useEffect(() => {
-    let mounted = true;
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        }
-      } catch (e) {
-        // تجاهل خطأ التوكن التلقائي للسماح بتسجيل الدخول بالبريد وكلمة المرور
-      }
-    };
-    initAuth();
-
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (!mounted) return;
+    return onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setAuthLoading(false);
     });
-
-    return () => {
-      mounted = false;
-      unsubscribe();
-    };
   }, []);
 
-  // 2. المزامنة السحابية الفورية (Real-time Firestore Listeners)
+  // المزامنة اللحظية لقاعدة البيانات السحابية (Firestore Real-time Sync)
   useEffect(() => {
-    if (!user) {
-      setInvoices([]);
-      setMonthlyPlans([]);
-      return;
-    }
+    if (!user) return;
 
-    setDataLoading(true);
-    const uid = user.uid;
+    const invQuery = query(
+      collection(db, `pharmacies/${user.uid}/invoices`),
+      orderBy("createdAt", "desc")
+    );
+    const unsubInv = onSnapshot(invQuery, (snap) => {
+      setInvoices(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
 
-    // الاستماع للفواتير
-    const invoicesRef = collection(db, 'artifacts', appId, 'users', uid, 'invoices');
-    const unsubInvoices = onSnapshot(
-      invoicesRef,
-      (snapshot) => {
-        const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-        list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-        setInvoices(list);
-        setDataLoading(false);
-      },
-      (err) => {
-        console.error('Firestore invoices error:', err);
-        setDataLoading(false);
+    const trQuery = query(collection(db, `pharmacies/${user.uid}/monthlyTreatments`));
+    const unsubTr = onSnapshot(trQuery, (snap) => {
+      setTreatments(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+
+    const unsubSet = onSnapshot(doc(db, `pharmacies/${user.uid}/config/settings`), (snap) => {
+      if (snap.exists()) {
+        setSettings((prev) => ({ ...prev, ...snap.data() }));
       }
-    );
-
-    // الاستماع لخطط العلاج الشهري
-    const monthlyRef = collection(db, 'artifacts', appId, 'users', uid, 'monthlyTreatments');
-    const unsubMonthly = onSnapshot(
-      monthlyRef,
-      (snapshot) => {
-        const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-        list.sort((a, b) => (a.nextDueDate || '').localeCompare(b.nextDueDate || ''));
-        setMonthlyPlans(list);
-      },
-      (err) => console.error('Firestore monthly error:', err)
-    );
-
-    // الاستماع لإعدادات الصيدلية
-    const settingsDocRef = doc(db, 'artifacts', appId, 'users', uid, 'settings', 'pharmacyConfig');
-    const unsubSettings = onSnapshot(
-      settingsDocRef,
-      (docSnap) => {
-        if (docSnap.exists()) {
-          setSettings({ ...DEFAULT_SETTINGS, ...docSnap.data() });
-        } else {
-          setSettings(DEFAULT_SETTINGS);
-        }
-      },
-      (err) => console.error('Firestore settings error:', err)
-    );
+    });
 
     return () => {
-      unsubInvoices();
-      unsubMonthly();
-      unsubSettings();
+      unsubInv();
+      unsubTr();
+      unsubSet();
     };
   }, [user]);
 
-  // معالجة تسجيل الدخول / إنشاء الحساب / استعادة كلمة المرور
-  const handleAuthSubmit = async (e) => {
-    e.preventDefault();
-    setAuthError('');
-    setAuthMessage('');
-    setAuthSubmitting(true);
-
-    try {
-      if (authMode === 'login') {
-        await signInWithEmailAndPassword(auth, authForm.email.trim(), authForm.password);
-        showToast('تم تسجيل الدخول بنجاح ومزامنة بيانات صيدلية الجبلي');
-      } else if (authMode === 'register') {
-        if (!authForm.username.trim()) {
-          throw new Error('يرجى إدخال اسم المستخدم (Username).');
-        }
-        const cred = await createUserWithEmailAndPassword(auth, authForm.email.trim(), authForm.password);
-        await updateProfile(cred.user, { displayName: authForm.username.trim() });
-        // حفظ الإعدادات الأولية للحساب الجديد
-        await setDoc(doc(db, 'artifacts', appId, 'users', cred.user.uid, 'settings', 'pharmacyConfig'), {
-          ...DEFAULT_SETTINGS,
-          ownerUsername: authForm.username.trim(),
-          ownerEmail: authForm.email.trim()
-        });
-        showToast('تم إنشاء الحساب السحابي لصيدلية الجبلي بنجاح');
-      } else if (authMode === 'reset') {
-        if (!authForm.email.trim()) {
-          throw new Error('يرجى إدخال البريد الإلكتروني لإرسال رابط استعادة كلمة المرور.');
-        }
-        await sendPasswordResetEmail(auth, authForm.email.trim());
-        setAuthMessage('تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.');
-      }
-    } catch (err) {
-      let msg = err.message || 'حدث خطأ أثناء المصادقة.';
-      if (msg.includes('auth/invalid-credential') || msg.includes('auth/wrong-password') || msg.includes('auth/user-not-found')) {
-        msg = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
-      } else if (msg.includes('auth/email-already-in-use')) {
-        msg = 'هذا البريد الإلكتروني مسجل بالفعل. يمكنك تسجيل الدخول مباشرة.';
-      } else if (msg.includes('auth/weak-password')) {
-        msg = 'كلمة المرور ضعيفة، يجب أن تكون 6 أحرف على الأقل.';
-      }
-      setAuthError(msg);
-    } finally {
-      setAuthSubmitting(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    setActiveTab('dashboard');
-    showToast('تم تسجيل الخروج بأمان', 'info');
-  };
-
-  // حذف فاتورة من Firestore
-  const confirmDeleteInvoice = async () => {
-    if (!deleteConfirmTarget || !user) return;
-    try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'invoices', deleteConfirmTarget.id));
-      showToast(`تم حذف الفاتورة رقم ${deleteConfirmTarget.invoiceNumber} وتحديث الإحصائيات`);
-      if (previewInvoice?.id === deleteConfirmTarget.id) setPreviewInvoice(null);
-      if (editingInvoice?.id === deleteConfirmTarget.id) setEditingInvoice(null);
-    } catch (err) {
-      showToast('فشل حذف الفاتورة: ' + err.message, 'error');
-    } finally {
-      setDeleteConfirmTarget(null);
-    }
-  };
-
-  // شاشة التحميل الأولية
   if (authLoading) {
     return (
-      <div dir="rtl" className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-sans">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-2xl mb-4 animate-pulse">
-          <HeartPulse className="w-9 h-9 text-white" />
-        </div>
-        <h2 className="text-xl font-bold tracking-wide">صيدلية الجبلي</h2>
-        <p className="text-slate-400 text-sm mt-1">جاري الاتصال بقاعدة البيانات السحابية...</p>
+      <div className="h-screen flex flex-col items-center justify-center bg-slate-50 text-emerald-800 font-bold gap-3" dir="rtl">
+        <div className="w-10 h-10 border-4 border-emerald-700 border-t-transparent rounded-full animate-spin"></div>
+        <span>جاري الاتصال بقاعدة البيانات السحابية لصيدلية الجبلي...</span>
       </div>
     );
   }
 
-  // ============================================================================
-  // أولًا: شاشة تسجيل الدخول وإنشاء الحساب السحابي (Login System)
-  // ============================================================================
   if (!user) {
-    return (
-      <div dir="rtl" className="min-h-screen bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 flex items-center justify-center p-4 font-['Cairo',sans-serif]">
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
-        `}</style>
-        <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-emerald-500/20">
-          {/* الجانب التعريفي لصيدلية الجبلي */}
-          <div className="lg:col-span-5 bg-gradient-to-b from-emerald-900 via-emerald-800 to-teal-950 text-white p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-emerald-400/10 blur-2xl pointer-events-none" />
-            <div className="absolute -bottom-24 -right-24 w-64 h-64 rounded-full bg-amber-400/10 blur-2xl pointer-events-none" />
-
-            <div>
-              <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/15 mb-8">
-                <div className="w-10 h-10 rounded-xl bg-amber-400 text-emerald-950 flex items-center justify-center font-extrabold shadow-lg">
-                  <HeartPulse className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="font-extrabold text-lg leading-tight">صيدلية الجبلي</div>
-                  <div className="text-[11px] text-emerald-200 tracking-wider">EL GABALY PHARMACY</div>
-                </div>
-              </div>
-
-              <h1 className="text-2xl lg:text-3xl font-extrabold leading-snug mb-4">
-                نظام إدارة التأمينات الصحية والمطالبات الذكي
-              </h1>
-              <p className="text-emerald-100/85 text-sm leading-relaxed mb-8">
-                منصة سحابية متكاملة لقراءة مستندات شركات التأمين بالذكاء الاصطناعي (OCR)، وإصدار الفواتير المعتمدة، ومتابعة العلاجات الشهرية والتقارير المالية لحظيًا من أي جهاز.
-              </p>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 bg-white/10 rounded-xl p-3 border border-white/10">
-                  <Sparkles className="w-5 h-5 text-amber-300 shrink-0" />
-                  <span className="text-xs font-medium">قراءة ذكية لمستندات AXA و MetLife و MedRight</span>
-                </div>
-                <div className="flex items-center gap-3 bg-white/10 rounded-xl p-3 border border-white/10">
-                  <Database className="w-5 h-5 text-emerald-300 shrink-0" />
-                  <span className="text-xs font-medium">مزامنة سحابية فورية وآمنة بين جميع أجهزة الصيدلية</span>
-                </div>
-                <div className="flex items-center gap-3 bg-white/10 rounded-xl p-3 border border-white/10">
-                  <Printer className="w-5 h-5 text-sky-300 shrink-0" />
-                  <span className="text-xs font-medium">طباعة فواتير A4 وتقارير شهرية تفصيلية بضغطة زر</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-8 mt-8 border-t border-white/15 flex items-center justify-between text-xs text-emerald-200/80">
-              <span>حماية وتشفير كامل لبيانات المرضى</span>
-              <ShieldCheck className="w-4 h-4 text-amber-300" />
-            </div>
-          </div>
-
-          {/* نموذج تسجيل الدخول / إنشاء الحساب */}
-          <div className="lg:col-span-7 p-8 lg:p-12 flex flex-col justify-center bg-white">
-            <div className="max-w-md mx-auto w-full">
-              <div className="mb-8">
-                <span className="inline-block text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full mb-2">
-                  البوابة السحابية الموحدة
-                </span>
-                <h2 className="text-2xl font-extrabold text-slate-900">
-                  {authMode === 'login' && 'تسجيل الدخول إلى النظام'}
-                  {authMode === 'register' && 'إنشاء حساب سحابي جديد'}
-                  {authMode === 'reset' && 'استعادة كلمة المرور'}
-                </h2>
-                <p className="text-slate-500 text-sm mt-1">
-                  {authMode === 'login' && 'أدخل بيانات حسابك للوصول إلى فواتير وتقارير صيدلية الجبلي'}
-                  {authMode === 'register' && 'أنشئ حسابًا موحدًا لمزامنة كافة الأجهزة مع قاعدة البيانات المركزية'}
-                  {authMode === 'reset' && 'أدخل بريدك الإلكتروني وسنرسل لك رابط استعادة الوصول'}
-                </p>
-              </div>
-
-              {authError && (
-                <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>{authError}</span>
-                </div>
-              )}
-
-              {authMessage && (
-                <div className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>{authMessage}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleAuthSubmit} className="space-y-4">
-                {authMode === 'register' && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      اسم المستخدم (Username)
-                    </label>
-                    <div className="relative">
-                      <User className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        required
-                        placeholder="مثال: د. أحمد الجبلي"
-                        value={authForm.username}
-                        onChange={(e) => setAuthForm({ ...authForm, username: e.target.value })}
-                        className="w-full pr-10 pl-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm transition"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    البريد الإلكتروني (Email Address)
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="email"
-                      required
-                      dir="ltr"
-                      placeholder="pharmacy@elgabaly.com"
-                      value={authForm.email}
-                      onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-                      className="w-full pr-10 pl-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm text-left transition"
-                    />
-                  </div>
-                </div>
-
-                {authMode !== 'reset' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold text-slate-700">
-                        كلمة المرور (Password)
-                      </label>
-                      {authMode === 'login' && (
-                        <button
-                          type="button"
-                          onClick={() => { setAuthMode('reset'); setAuthError(''); setAuthMessage(''); }}
-                          className="text-xs font-semibold text-emerald-700 hover:underline"
-                        >
-                          نسيت كلمة المرور؟
-                        </button>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="password"
-                        required
-                        dir="ltr"
-                        placeholder="••••••••"
-                        value={authForm.password}
-                        onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                        className="w-full pr-10 pl-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm text-left transition"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={authSubmitting}
-                  className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-l from-emerald-700 to-teal-800 hover:from-emerald-800 hover:to-teal-900 text-white font-bold text-sm shadow-lg shadow-emerald-700/25 transition flex items-center justify-center gap-2 disabled:opacity-60"
-                >
-                  {authSubmitting ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <ShieldCheck className="w-4 h-4" />
-                  )}
-                  <span>
-                    {authMode === 'login' && 'تسجيل الدخول الآمن'}
-                    {authMode === 'register' && 'إنشاء الحساب وبدء العمل'}
-                    {authMode === 'reset' && 'إرسال رابط الاستعادة'}
-                  </span>
-                </button>
-              </form>
-
-              <div className="mt-6 pt-6 border-t border-slate-100 text-center text-xs text-slate-600">
-                {authMode === 'login' ? (
-                  <>
-                    ليس لديك حساب بعد؟{' '}
-                    <button
-                      type="button"
-                      onClick={() => { setAuthMode('register'); setAuthError(''); setAuthMessage(''); }}
-                      className="font-bold text-emerald-700 hover:underline"
-                    >
-                      أنشئ حسابًا جديدًا للصيدلية
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    لديك حساب بالفعل؟{' '}
-                    <button
-                      type="button"
-                      onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMessage(''); }}
-                      className="font-bold text-emerald-700 hover:underline"
-                    >
-                      العودة لتسجيل الدخول
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <AuthScreen />;
   }
-
-  // ============================================================================
-  // الواجهة الرئيسية للنظام بعد تسجيل الدخول
-  // ============================================================================
-  const dueMonthlyCount = monthlyPlans.filter((p) => p.active && p.nextDueDate <= getTodayISO()).length;
-
-  const navItems = [
-    { id: 'dashboard', label: 'لوحة التحكم الرئيسية', icon: LayoutDashboard },
-    { id: 'create', label: 'إنشاء فاتورة (Smart OCR)', icon: FilePlus2 },
-    { id: 'history', label: 'سجل الفواتير والمطالبات', icon: History, badge: invoices.length },
-    { id: 'reports', label: 'التقارير الشهرية للشركات', icon: BarChart3 },
-    { id: 'monthly', label: 'نظام العلاج الشهري', icon: CalendarClock, badge: dueMonthlyCount > 0 ? dueMonthlyCount : null, badgeAlert: true },
-    { id: 'settings', label: 'الإعدادات والنسخ الاحتياطي', icon: Settings }
-  ];
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-50 text-slate-800 font-['Cairo',sans-serif] flex flex-col lg:flex-row">
-      {/* أنماط الطباعة الاحترافية والخطوط */}
+    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 text-slate-900 font-sans" dir="rtl">
+      {/* تنسيقات الطباعة المدمجة لإخفاء القوائم والأزرار عند الطباعة */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+        body { font-family: 'Cairo', sans-serif; }
         @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-area, #printable-area * {
-            visibility: visible !important;
-          }
-          #printable-area {
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 12mm !important;
-            background: #ffffff !important;
-            box-shadow: none !important;
-            border: none !important;
-            z-index: 99999 !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-          @page {
-            size: A4;
-            margin: 8mm;
-          }
+          body * { visibility: hidden; }
+          #printable-area, #printable-area * { visibility: visible; }
+          #printable-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; }
+          .no-print { display: none !important; }
         }
       `}</style>
 
-      {/* إشعار عائم (Toast) */}
+      {/* إشعارات النظام */}
       {toast && (
-        <div className="no-print fixed bottom-5 left-5 z-50 max-w-md animate-bounce">
-          <div
-            className={`px-4 py-3 rounded-2xl shadow-xl border flex items-center gap-3 text-xs font-bold ${
-              toast.type === 'error'
-                ? 'bg-rose-900 text-white border-rose-700'
-                : toast.type === 'info'
-                ? 'bg-slate-900 text-white border-slate-700'
-                : 'bg-emerald-900 text-white border-emerald-700'
-            }`}
-          >
-            {toast.type === 'error' ? <AlertTriangle className="w-4 h-4 text-rose-300 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />}
-            <span>{toast.message}</span>
-          </div>
+        <div
+          className={`fixed bottom-5 left-5 z-50 px-5 py-3 rounded-xl shadow-lg text-white font-bold text-sm flex items-center gap-2 no-print ${
+            toast.type === "error" ? "bg-rose-600" : "bg-emerald-700"
+          }`}
+        >
+          <CheckCircle2 className="w-5 h-5" />
+          <span>{toast.message}</span>
         </div>
       )}
 
-      {/* الشريط العلوي للموبايل */}
-      <header className="no-print lg:hidden bg-emerald-950 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-md">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-amber-400 text-emerald-950 flex items-center justify-center font-black">
-            <HeartPulse className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="font-extrabold text-sm">{settings.pharmacyName || 'صيدلية الجبلي'}</div>
-            <div className="text-[10px] text-emerald-300">إدارة التأمينات الصحية</div>
-          </div>
-        </div>
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 rounded-xl bg-white/10 hover:bg-white/20"
-        >
-          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
-      </header>
-
-      {/* القائمة الجانبية الاحترافية (Sidebar) */}
-      <aside
-        className={`no-print fixed lg:sticky top-0 right-0 z-40 h-screen w-72 bg-gradient-to-b from-slate-950 via-emerald-950 to-slate-950 text-white flex flex-col justify-between transition-transform duration-300 shadow-2xl ${
-          mobileMenuOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
-        }`}
-      >
+      {/* القائمة الجانبية */}
+      <aside className="w-full md:w-64 bg-emerald-950 text-white flex flex-col justify-between p-4 no-print shrink-0">
         <div>
-          {/* شعار وهوية صيدلية الجبلي */}
-          <div className="p-6 border-b border-white/10">
-            <div className="flex items-center gap-3">
-              {settings.logoUrl ? (
-                <img src={settings.logoUrl} alt="Logo" className="w-12 h-12 rounded-2xl object-cover border border-amber-400/50 bg-white" />
-              ) : (
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-emerald-950 flex items-center justify-center shadow-lg shrink-0">
-                  <HeartPulse className="w-7 h-7" />
-                </div>
-              )}
-              <div>
-                <h1 className="font-black text-lg tracking-tight text-white leading-tight">
-                  {settings.pharmacyName || 'صيدلية الجبلي'}
-                </h1>
-                <span className="text-[11px] text-emerald-300 font-semibold block">
-                  نظام التأمينات الصحية المتكامل
-                </span>
-              </div>
+          <div className="pb-5 border-b border-emerald-800/80 mb-5 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center font-extrabold text-lg shadow">
+              ج
             </div>
-
-            {/* شارة المزامنة السحابية */}
-            <div className="mt-4 px-3 py-2 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between text-[11px]">
-              <span className="flex items-center gap-1.5 text-emerald-300 font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                متصل بالسحابة (مزامنة حية)
-              </span>
-              <Database className="w-3.5 h-3.5 text-emerald-400" />
+            <div>
+              <h1 className="text-lg font-extrabold leading-tight">{settings.name || "صيدلية الجبلي"}</h1>
+              <p className="text-[11px] text-emerald-300">نظام التأمينات الطبية السحابي</p>
             </div>
           </div>
 
-          {/* روابط التنقل */}
-          <nav className="p-4 space-y-1.5">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all ${
-                    isActive
-                      ? 'bg-gradient-to-l from-emerald-600 to-teal-700 text-white shadow-lg shadow-emerald-900/50'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-amber-300' : 'text-emerald-400'}`} />
-                    <span>{item.label}</span>
-                  </div>
-                  {item.badge !== undefined && item.badge !== null && (
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                        item.badgeAlert
-                          ? 'bg-amber-400 text-slate-950'
-                          : isActive
-                          ? 'bg-white/20 text-white'
-                          : 'bg-white/10 text-slate-300'
-                      }`}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <nav className="space-y-1.5 text-sm font-bold">
+            <NavItem
+              icon={LayoutDashboard}
+              label="لوحة التحكم (Dashboard)"
+              active={activeTab === "dashboard"}
+              onClick={() => setActiveTab("dashboard")}
+            />
+            <NavItem
+              icon={FilePlus}
+              label="إنشاء فاتورة (Smart OCR)"
+              active={activeTab === "create"}
+              onClick={() => {
+                setEditingInvoice(null);
+                setPrefillTreatment(null);
+                setActiveTab("create");
+              }}
+            />
+            <NavItem
+              icon={History}
+              label="سجل الفواتير"
+              active={activeTab === "history"}
+              onClick={() => setActiveTab("history")}
+            />
+            <NavItem
+              icon={BarChart3}
+              label="التقارير الشهرية"
+              active={activeTab === "reports"}
+              onClick={() => setActiveTab("reports")}
+            />
+            <NavItem
+              icon={Repeat}
+              label="العلاجات الشهرية"
+              badge={treatments.filter((t) => t.active).length}
+              active={activeTab === "monthly"}
+              onClick={() => setActiveTab("monthly")}
+            />
+            <NavItem
+              icon={Settings}
+              label="الإعدادات وربط API"
+              active={activeTab === "settings"}
+              onClick={() => setActiveTab("settings")}
+            />
           </nav>
         </div>
 
-        {/* معلومات الحساب وتسجيل الخروج */}
-        <div className="p-4 border-t border-white/10 bg-black/20">
-          <div className="flex items-center gap-3 mb-3 px-2">
-            <div className="w-9 h-9 rounded-full bg-emerald-800 border border-emerald-500/40 flex items-center justify-center font-bold text-sm text-amber-300">
-              {(user.displayName || user.email || 'G')[0].toUpperCase()}
-            </div>
-            <div className="overflow-hidden">
-              <div className="text-xs font-bold text-white truncate">
-                {user.displayName || settings.ownerUsername || 'مدير الصيدلية'}
-              </div>
-              <div className="text-[10px] text-slate-400 truncate" dir="ltr">
-                {user.email}
-              </div>
-            </div>
+        <div className="pt-4 border-t border-emerald-800/80 mt-6 space-y-3 text-xs">
+          <div className="bg-emerald-900/60 p-2.5 rounded-lg">
+            <p className="font-bold text-white truncate">{user.displayName || "مدير الصيدلية"}</p>
+            <p className="text-emerald-300 truncate text-[11px]">{user.email}</p>
           </div>
           <button
-            onClick={handleLogout}
-            className="w-full py-2.5 px-4 rounded-xl bg-rose-500/15 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/30 text-xs font-bold flex items-center justify-center gap-2 transition"
+            onClick={() => signOut(auth)}
+            className="w-full bg-rose-600/90 hover:bg-rose-600 text-white py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition"
           >
-            <LogOut className="w-4 h-4" />
-            <span>تسجيل الخروج</span>
+            <LogOut className="w-4 h-4" /> تسجيل الخروج
           </button>
         </div>
       </aside>
 
-      {/* خلفية إغلاق القائمة للموبايل */}
-      {mobileMenuOpen && (
-        <div
-          onClick={() => setMobileMenuOpen(false)}
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-        />
-      )}
-
-      {/* المحتوى الرئيسي للصفحات */}
-      <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-[1600px] w-full mx-auto overflow-x-hidden">
-        {activeTab === 'dashboard' && (
+      {/* المحتوى الرئيسي */}
+      <main className="flex-1 p-4 md:p-6 overflow-y-auto">
+        {activeTab === "dashboard" && (
           <DashboardView
             invoices={invoices}
-            monthlyPlans={monthlyPlans}
-            settings={settings}
+            treatments={treatments}
             onNavigate={setActiveTab}
-            onOpenInvoice={(inv) => setPreviewInvoice(inv)}
-            onRenewMonthly={(plan) => {
-              setDraftFromMonthly(plan);
-              setActiveTab('create');
-            }}
+            onViewInvoice={(inv) => setPreviewInvoice(inv)}
           />
         )}
 
-        {activeTab === 'create' && (
-          <CreateInvoiceView
-            user={user}
+        {activeTab === "create" && (
+          <InvoiceEditorView
+            userId={user.uid}
             settings={settings}
-            invoices={invoices}
-            draftFromMonthly={draftFromMonthly}
-            onClearDraft={() => setDraftFromMonthly(null)}
+            editingInvoice={editingInvoice}
+            prefillTreatment={prefillTreatment}
             onSaved={(savedInv) => {
-              showToast(`تم حفظ الفاتورة رقم ${savedInv.invoiceNumber} ومزامنتها سحابيًا بنجاح`);
+              showToast(editingInvoice ? "تم تحديث الفاتورة ومزامنتها سحابيًا" : "تم إنشاء الفاتورة وحفظها بنجاح");
+              setEditingInvoice(null);
+              setPrefillTreatment(null);
               setPreviewInvoice(savedInv);
-              setActiveTab('history');
+              setActiveTab("history");
             }}
-            showToast={showToast}
           />
         )}
 
-        {activeTab === 'history' && (
+        {activeTab === "history" && (
           <InvoicesHistoryView
+            userId={user.uid}
             invoices={invoices}
-            settings={settings}
-            onPreview={(inv) => setPreviewInvoice(inv)}
-            onEdit={(inv) => setEditingInvoice(inv)}
-            onDelete={(inv) => setDeleteConfirmTarget(inv)}
-            onCreateNew={() => setActiveTab('create')}
+            onView={(inv) => setPreviewInvoice(inv)}
+            onEdit={(inv) => {
+              setEditingInvoice(inv);
+              setActiveTab("create");
+            }}
+            onDeleted={() => showToast("تم حذف الفاتورة وتحديث الإجماليات")}
           />
         )}
 
-        {activeTab === 'reports' && (
+        {activeTab === "reports" && (
           <MonthlyReportsView
             invoices={invoices}
-            settings={settings}
-            onPreviewInvoice={(inv) => setPreviewInvoice(inv)}
-            onEditInvoice={(inv) => setEditingInvoice(inv)}
+            pharmacySettings={settings}
+            onViewInvoice={(inv) => setPreviewInvoice(inv)}
           />
         )}
 
-        {activeTab === 'monthly' && (
-          <MonthlyTreatmentView
-            user={user}
-            monthlyPlans={monthlyPlans}
+        {activeTab === "monthly" && (
+          <MonthlyTreatmentsView
+            userId={user.uid}
+            treatments={treatments}
             invoices={invoices}
-            onRenewPlan={(plan) => {
-              setDraftFromMonthly(plan);
-              setActiveTab('create');
+            onPrepareInvoice={(tr) => {
+              setPrefillTreatment(tr);
+              setEditingInvoice(null);
+              setActiveTab("create");
             }}
-            showToast={showToast}
+            onNotify={showToast}
           />
         )}
 
-        {activeTab === 'settings' && (
+        {activeTab === "settings" && (
           <SettingsView
-            user={user}
+            userId={user.uid}
             settings={settings}
-            invoices={invoices}
-            monthlyPlans={monthlyPlans}
-            showToast={showToast}
+            onSaved={() => showToast("تم حفظ إعدادات الصيدلية ومزامنتها عبر جميع الأجهزة")}
           />
         )}
       </main>
 
-      {/* ========================================================================
-          نافذة معاينة وطباعة الفاتورة الاحترافية A4 (Print Modal)
-      ======================================================================== */}
+      {/* نافذة معاينة وطباعة الفاتورة A4 */}
       {previewInvoice && (
-        <InvoicePrintModal
-          invoice={previewInvoice}
-          settings={settings}
-          onClose={() => setPreviewInvoice(null)}
-          onEdit={() => {
-            setEditingInvoice(previewInvoice);
-            setPreviewInvoice(null);
-          }}
-        />
-      )}
-
-      {/* ========================================================================
-          نافذة تعديل الفاتورة المحفوظة (Edit Invoice Modal)
-      ======================================================================== */}
-      {editingInvoice && (
-        <EditInvoiceModal
-          user={user}
-          invoice={editingInvoice}
-          settings={settings}
-          onClose={() => setEditingInvoice(null)}
-          onUpdated={(updated) => {
-            showToast(`تم تحديث الفاتورة ${updated.invoiceNumber} وتحديث كافة التقارير`);
-            setEditingInvoice(null);
-            setPreviewInvoice(updated);
-          }}
-          showToast={showToast}
-        />
-      )}
-
-      {/* ========================================================================
-          نافذة تأكيد الحذف المخصصة (بديل confirm)
-      ======================================================================== */}
-      {deleteConfirmTarget && (
-        <div className="no-print fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
-            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
-              <Trash2 className="w-6 h-6" />
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 my-auto">
+            <div className="flex justify-between items-center border-b pb-3 no-print">
+              <h3 className="font-extrabold text-lg text-emerald-900">معاينة الفاتورة للطباعة (A4)</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm"
+                >
+                  <Printer className="w-4 h-4" /> طباعة / تنزيل PDF
+                </button>
+                <button
+                  onClick={() => setPreviewInvoice(null)}
+                  className="bg-slate-200 hover:bg-slate-300 text-slate-800 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-1"
+                >
+                  <X className="w-4 h-4" /> إغلاق
+                </button>
+              </div>
             </div>
-            <h3 className="text-lg font-extrabold text-slate-900">تأكيد حذف الفاتورة</h3>
-            <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-              هل أنت متأكد من حذف الفاتورة رقم <span className="font-bold text-slate-900">{deleteConfirmTarget.invoiceNumber}</span> الخاصة بالمريض <span className="font-bold text-slate-900">{deleteConfirmTarget.patientName}</span>؟ سيتم خصم قيمتها تلقائيًا من التقارير الشهرية وإحصائيات الصيدلية.
-            </p>
-            <div className="mt-6 flex items-center justify-end gap-3">
-              <button
-                onClick={() => setDeleteConfirmTarget(null)}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
-              >
-                إلغاء
-              </button>
-              <button
-                onClick={confirmDeleteInvoice}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/20"
-              >
-                نعم، احذف الفاتورة نهائيًا
-              </button>
+            <div id="printable-area">
+              <PrintableInvoice invoice={previewInvoice} pharmacySettings={settings} />
             </div>
           </div>
         </div>
@@ -1041,2429 +550,596 @@ export default function App() {
   );
 }
 
+function NavItem({ icon: Icon, label, active, onClick, badge }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition ${
+        active ? "bg-emerald-600 text-white shadow-md" : "text-emerald-100/90 hover:bg-emerald-900"
+      }`}
+    >
+      <span className="flex items-center gap-2.5">
+        <Icon className="w-4 h-4 shrink-0" />
+        <span>{label}</span>
+      </span>
+      {badge > 0 && (
+        <span className="bg-amber-400 text-slate-950 text-[11px] font-extrabold px-2 py-0.5 rounded-full">
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
 // ============================================================================
-// ثانيًا: الصفحة الرئيسية (DashboardView)
+// 4. شاشة تسجيل الدخول والحسابات (AuthScreen)
 // ============================================================================
-function DashboardView({ invoices, monthlyPlans, settings, onNavigate, onOpenInvoice, onRenewMonthly }) {
+function AuthScreen() {
+  const [isRegister, setIsRegister] = useState(false);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setInfo("");
+    setLoading(true);
+    try {
+      if (isRegister) {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(cred.user, { displayName: username });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      setError("يرجى كتابة البريد الإلكتروني أولاً لإرسال رابط استعادة كلمة المرور.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setInfo("تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني.");
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-950 via-slate-900 to-emerald-900 p-4" dir="rtl">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 space-y-6">
+        <div className="text-center space-y-1">
+          <div className="w-14 h-14 bg-emerald-700 text-white rounded-2xl mx-auto flex items-center justify-center text-2xl font-extrabold shadow-lg mb-3">
+            ج
+          </div>
+          <h2 className="text-2xl font-extrabold text-slate-900">صيدلية الجبلي</h2>
+          <p className="text-xs text-slate-500 font-semibold">El Gabaly Pharmacy — نظام إدارة التأمينات السحابي</p>
+        </div>
+
+        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-xs font-bold">{error}</div>}
+        {info && <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-3 rounded-xl text-xs font-bold">{info}</div>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {isRegister && (
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Username (اسم المستخدم)</label>
+              <input
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-600"
+                placeholder="د. محمد الجبلي"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Email Address (البريد الإلكتروني)</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-left focus:outline-none focus:border-emerald-600"
+              dir="ltr"
+              placeholder="pharmacy@elgabaly.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Password (كلمة المرور)</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-left focus:outline-none focus:border-emerald-600"
+              dir="ltr"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-emerald-700 hover:bg-emerald-800 text-white py-3 rounded-xl font-bold text-sm shadow-md transition"
+          >
+            {loading ? "جاري التحقق..." : isRegister ? "إنشاء حساب سحابي جديد" : "تسجيل الدخول"}
+          </button>
+        </form>
+
+        <div className="flex items-center justify-between text-xs font-bold text-emerald-700 pt-2 border-t">
+          <button type="button" onClick={() => setIsRegister(!isRegister)} className="hover:underline">
+            {isRegister ? "لديك حساب بالفعل؟ تسجيل الدخول" : "إنشاء حساب جديد"}
+          </button>
+          <button type="button" onClick={handleResetPassword} className="text-slate-500 hover:text-emerald-700">
+            استعادة كلمة المرور
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// 5. الصفحة الرئيسية (Dashboard)
+// ============================================================================
+function DashboardView({ invoices, treatments, onNavigate, onViewInvoice }) {
   const stats = useMemo(() => {
-    let totalClaimsValue = 0;
-    let totalCompanyDue = 0;
-    let totalPatientShare = 0;
-    let totalDiscount = 0;
-    let totalNetProfit = 0;
     const byCompany = { AXA: 0, MetLife: 0, MedRight: 0 };
+    const monthlyMap = {};
+
+    let grossTotal = 0;
+    let companyDue = 0;
+    let patientShare = 0;
+    let discountAmount = 0;
+    let netProfit = 0;
 
     invoices.forEach((inv) => {
-      totalClaimsValue += Number(inv.totalDrugsAmount) || 0;
-      totalCompanyDue += Number(inv.companyDueAmount) || 0;
-      totalPatientShare += Number(inv.patientShareAmount) || 0;
-      totalDiscount += Number(inv.discountAmount) || 0;
-      totalNetProfit += Number(inv.netProfit) || 0;
+      grossTotal += Number(inv.grossTotal) || 0;
+      companyDue += Number(inv.companyDue) || 0;
+      patientShare += Number(inv.patientShare) || 0;
+      discountAmount += Number(inv.discountAmount) || 0;
+      netProfit += Number(inv.netProfit) || 0;
+
       if (byCompany[inv.company] !== undefined) {
         byCompany[inv.company] += 1;
       }
+
+      const month = (inv.claimDate || "").slice(0, 7);
+      if (month) {
+        if (!monthlyMap[month]) monthlyMap[month] = { AXA: 0, MetLife: 0, MedRight: 0 };
+        if (monthlyMap[month][inv.company] !== undefined) {
+          monthlyMap[month][inv.company] += Number(inv.companyDue) || 0;
+        }
+      }
     });
 
+    const sortedMonths = Object.keys(monthlyMap).sort().slice(-6);
     return {
-      totalCount: invoices.length,
-      totalClaimsValue,
-      totalCompanyDue,
-      totalPatientShare,
-      totalDiscount,
-      totalNetProfit,
-      byCompany
+      count: invoices.length,
+      grossTotal,
+      companyDue,
+      patientShare,
+      discountAmount,
+      netProfit,
+      byCompany,
+      sortedMonths,
+      monthlyMap,
     };
   }, [invoices]);
 
-  // بيانات الرسم البياني الشهري للشركات الثلاث
-  const monthlyChartData = useMemo(() => {
-    const map = {};
-    invoices.forEach((inv) => {
-      const dateStr = inv.claimDate || inv.createdAt || getTodayISO();
-      const monthKey = dateStr.slice(0, 7); // YYYY-MM
-      if (!map[monthKey]) {
-        map[monthKey] = { month: monthKey, AXA: 0, MetLife: 0, MedRight: 0 };
-      }
-      if (map[monthKey][inv.company] !== undefined) {
-        map[monthKey][inv.company] += Number(inv.companyDueAmount) || 0;
-      }
-    });
-    const sorted = Object.values(map).sort((a, b) => a.month.localeCompare(b.month));
-    return sorted.length > 0 ? sorted : [{ month: getTodayISO().slice(0, 7), AXA: 0, MetLife: 0, MedRight: 0 }];
-  }, [invoices]);
-
-  const duePlans = useMemo(() => {
-    const today = getTodayISO();
-    return monthlyPlans.filter((p) => p.active && p.nextDueDate <= today);
-  }, [monthlyPlans]);
+  const dueTreatments = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return treatments.filter((t) => t.active && t.nextDueDate <= today);
+  }, [treatments]);
 
   return (
     <div className="space-y-6">
-      {/* ترويسة الترحيب */}
-      <div className="bg-gradient-to-l from-emerald-900 via-emerald-800 to-teal-900 rounded-3xl p-6 md:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-white/15 px-3 py-1 rounded-full text-amber-300 mb-2">
-            <Sparkles className="w-3.5 h-3.5" />
-            ملخص الأداء الفوري — {settings.pharmacyName}
-          </span>
-          <h2 className="text-2xl md:text-3xl font-black">لوحة التحكم والمتابعة التأمينية</h2>
-          <p className="text-emerald-100/80 text-xs md:text-sm mt-1">
-            جميع الإحصائيات والرسوم البيانية محسوبة تلقائيًا من الفواتير السحابية المسجلة.
-          </p>
+          <h2 className="text-2xl font-extrabold text-slate-900">لوحة التحكم الرئيسية</h2>
+          <p className="text-xs text-slate-500">ملخص مباشر ومتزامن لمطالبات التأمين في صيدلية الجبلي</p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => onNavigate('create')}
-            className="px-5 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-emerald-950 font-extrabold text-xs shadow-lg flex items-center gap-2 transition"
-          >
-            <FilePlus2 className="w-4 h-4" />
-            <span>قراءة مستند وإنشاء فاتورة</span>
-          </button>
-          <button
-            onClick={() => onNavigate('reports')}
-            className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-2 transition"
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>التقارير الشهرية</span>
-          </button>
-        </div>
+        <button
+          onClick={() => onNavigate("create")}
+          className="bg-emerald-700 hover:bg-emerald-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow"
+        >
+          <FilePlus className="w-4 h-4" /> فاتورة جديدة (Smart OCR)
+        </button>
       </div>
 
-      {/* بطاقات المؤشرات المالية الرئيسية */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <StatCard
-          title="إجمالي عدد الفواتير"
-          value={stats.totalCount}
-          unit="فاتورة"
-          icon={Receipt}
-          accent="emerald"
-          onClick={() => onNavigate('history')}
-        />
-        <StatCard
-          title="إجمالي المطالبات (الأدوية)"
-          value={formatCurrency(stats.totalClaimsValue)}
-          unit="ج.م"
-          icon={Pill}
-          accent="blue"
-          onClick={() => onNavigate('history')}
-        />
-        <StatCard
+      {/* بطاقات المؤشرات الرئيسية */}
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+        <KpiCard title="إجمالي عدد الفواتير" value={stats.count} onClick={() => onNavigate("history")} />
+        <KpiCard title="إجمالي المطالبات" value={`${stats.grossTotal.toFixed(2)} ج.م`} />
+        <KpiCard
           title="المطلوب من الشركات"
-          value={formatCurrency(stats.totalCompanyDue)}
-          unit="ج.م"
-          icon={Building2}
-          accent="teal"
-          onClick={() => onNavigate('reports')}
+          value={`${stats.companyDue.toFixed(2)} ج.م`}
+          accent="text-emerald-700"
+          onClick={() => onNavigate("reports")}
         />
-        <StatCard
-          title="إجمالي تحمل المرضى"
-          value={formatCurrency(stats.totalPatientShare)}
-          unit="ج.م"
-          icon={User}
-          accent="amber"
-          onClick={() => onNavigate('history')}
-        />
-        <StatCard
-          title="إجمالي الخصومات"
-          value={formatCurrency(stats.totalDiscount)}
-          unit="ج.م"
-          icon={CreditCard}
-          accent="rose"
-          onClick={() => onNavigate('history')}
-        />
-        <StatCard
-          title="صافي الربح التقديري"
-          value={formatCurrency(stats.totalNetProfit)}
-          unit="ج.م"
-          icon={Sparkles}
-          accent="indigo"
-          onClick={() => onNavigate('reports')}
-        />
+        <KpiCard title="إجمالي تحمل المرضى" value={`${stats.patientShare.toFixed(2)} ج.م`} accent="text-rose-700" />
+        <KpiCard title="إجمالي خصم" value={`${stats.discountAmount.toFixed(2)} ج.م`} accent="text-amber-700" />
+        <KpiCard title="صافي الربح" value={`${stats.netProfit.toFixed(2)} ج.م`} accent="text-blue-700" />
       </div>
 
-      {/* بطاقات عدد الفواتير لكل شركة تأمين */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {COMPANIES.map((comp) => (
-          <div
-            key={comp.id}
-            onClick={() => onNavigate('reports')}
-            className="cursor-pointer bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-emerald-400 transition flex items-center justify-between"
-          >
-            <div>
-              <span className={`inline-block px-3 py-1 rounded-lg text-xs font-extrabold ${comp.bg} ${comp.text}`}>
-                {comp.name}
-              </span>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900">{stats.byCompany[comp.id] || 0}</span>
-                <span className="text-xs text-slate-500 font-semibold">فاتورة مسجلة</span>
-              </div>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-600">
-              <ArrowUpRight className="w-5 h-5" />
+      {/* توزيع الفواتير حسب الشركة + العلاجات الشهرية المستحقة */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <h3 className="font-bold text-slate-800">عدد الفواتير لكل شركة تأمين</h3>
+          <div className="space-y-3">
+            {["AXA", "MetLife", "MedRight"].map((comp) => {
+              const count = stats.byCompany[comp] || 0;
+              const pct = stats.count ? Math.round((count / stats.count) * 100) : 0;
+              return (
+                <div
+                  key={comp}
+                  onClick={() => onNavigate("reports")}
+                  className="cursor-pointer p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-100 transition"
+                >
+                  <div className="flex justify-between text-sm font-bold mb-1.5">
+                    <span>{comp}</span>
+                    <span className="text-emerald-700">{count} فاتورة ({pct}%)</span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                    <div className="bg-emerald-600 h-full rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* رسم بياني تفاعلي للأداء الشهري */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 flex flex-col justify-between">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-slate-800">أداء الشركات خلال الأشهر الأخيرة (المطلوب من الشركة)</h3>
+            <div className="flex gap-3 text-xs font-bold">
+              <span className="flex items-center gap-1"><i className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></i> AXA</span>
+              <span className="flex items-center gap-1"><i className="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block"></i> MetLife</span>
+              <span className="flex items-center gap-1"><i className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></i> MedRight</span>
             </div>
           </div>
-        ))}
+
+          {stats.sortedMonths.length === 0 ? (
+            <div className="h-44 flex items-center justify-center text-xs text-slate-400">
+              لا توجد بيانات شهرية مسجلة بعد — ابدأ بإنشاء أول فاتورة
+            </div>
+          ) : (
+            <div className="grid grid-cols-6 gap-3 items-end h-44 pt-4 border-b border-slate-200 px-2">
+              {stats.sortedMonths.map((month) => {
+                const mData = stats.monthlyMap[month];
+                const maxVal = Math.max(
+                  1,
+                  ...stats.sortedMonths.flatMap((m) => Object.values(stats.monthlyMap[m]))
+                );
+                return (
+                  <div key={month} className="flex flex-col items-center gap-1.5 h-full justify-end">
+                    <div className="flex items-end gap-1 h-32 w-full justify-center">
+                      <div
+                        title={`AXA: ${mData.AXA.toFixed(2)}`}
+                        style={{ height: `${Math.max(4, (mData.AXA / maxVal) * 100)}%` }}
+                        className="w-3 bg-blue-600 rounded-t transition-all"
+                      />
+                      <div
+                        title={`MetLife: ${mData.MetLife.toFixed(2)}`}
+                        style={{ height: `${Math.max(4, (mData.MetLife / maxVal) * 100)}%` }}
+                        className="w-3 bg-emerald-600 rounded-t transition-all"
+                      />
+                      <div
+                        title={`MedRight: ${mData.MedRight.toFixed(2)}`}
+                        style={{ height: `${Math.max(4, (mData.MedRight / maxVal) * 100)}%` }}
+                        className="w-3 bg-amber-500 rounded-t transition-all"
+                      />
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-600">{month}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* الرسم البياني وتنبيهات العلاج الشهري */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-8 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900">أداء شركات التأمين خلال الشهور (المطلوب من الشركة)</h3>
-              <p className="text-xs text-slate-500">مقارنة تفاعلية لقيمة المطالبات الشهرية لكل شركة بالجنيه المصري</p>
-            </div>
-            <button
-              onClick={() => onNavigate('reports')}
-              className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1"
-            >
-              <span>فتح التقارير</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
+      {/* آخر الفواتير + العلاجات الشهرية المستحقة */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-bold text-slate-800">آخر الفواتير المنشأة</h3>
+            <button onClick={() => onNavigate("history")} className="text-xs font-bold text-emerald-700 hover:underline">
+              عرض الكل
             </button>
           </div>
-          <div className="h-72 w-full" dir="ltr">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value) => `${formatCurrency(value)} ج.م`} />
-                <Legend />
-                <Bar dataKey="AXA" name="AXA (أكسا)" fill="#1d4ed8" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="MetLife" name="MetLife (ميتلايف)" fill="#047857" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="MedRight" name="MedRight (ميدرايت)" fill="#d97706" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="space-y-2">
+            {invoices.slice(0, 5).map((inv) => (
+              <div
+                key={inv.id}
+                onClick={() => onViewInvoice(inv)}
+                className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer"
+              >
+                <div>
+                  <p className="font-bold text-sm">{inv.patientName}</p>
+                  <p className="text-xs text-slate-500">{inv.company} • {inv.claimDate}</p>
+                </div>
+                <span className="font-extrabold text-sm text-emerald-700">{Number(inv.companyDue).toFixed(2)} ج.م</span>
+              </div>
+            ))}
+            {invoices.length === 0 && <p className="text-xs text-slate-400 text-center py-6">لا توجد فواتير بعد.</p>}
           </div>
         </div>
 
-        {/* العلاجات الشهرية المستحقة للتجديد */}
-        <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                <CalendarClock className="w-5 h-5 text-amber-600" />
-                <span>العلاجات الشهرية المستحقة</span>
-              </h3>
-              <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-extrabold">
-                {duePlans.length}
-              </span>
-            </div>
-
-            {duePlans.length === 0 ? (
-              <div className="text-center py-10 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-700">لا توجد علاجات شهرية متأخرة حاليًا</p>
-                <p className="text-[11px] text-slate-500 mt-1">عند حلول موعد تجديد أي مريض سيظهر هنا للتأكيد</p>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-bold text-slate-800">علاجات شهرية مستحقة التجديد ({dueTreatments.length})</h3>
+            <button onClick={() => onNavigate("monthly")} className="text-xs font-bold text-emerald-700 hover:underline">
+              إدارة العلاجات
+            </button>
+          </div>
+          <div className="space-y-2">
+            {dueTreatments.slice(0, 5).map((tr) => (
+              <div key={tr.id} className="flex items-center justify-between p-3 rounded-xl bg-amber-50/70 border border-amber-200">
+                <div>
+                  <p className="font-bold text-sm text-slate-900">{tr.patientName}</p>
+                  <p className="text-xs text-slate-600">{tr.company} • موعد الاستحقاق: {tr.nextDueDate}</p>
+                </div>
+                <button
+                  onClick={() => onNavigate("monthly")}
+                  className="bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold"
+                >
+                  تجديد
+                </button>
               </div>
-            ) : (
-              <div className="space-y-3 max-h-64 overflow-y-auto pl-1">
-                {duePlans.map((plan) => (
-                  <div key={plan.id} className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 flex items-center justify-between gap-2">
-                    <div>
-                      <div className="text-xs font-extrabold text-slate-900">{plan.patientName}</div>
-                      <div className="text-[11px] text-slate-600 mt-0.5">
-                        {plan.company} • الاستحقاق: <span className="font-bold text-amber-800">{plan.nextDueDate}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => onRenewMonthly(plan)}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold shrink-0"
-                    >
-                      تجهيز الفاتورة
-                    </button>
-                  </div>
-                ))}
-              </div>
+            ))}
+            {dueTreatments.length === 0 && (
+              <p className="text-xs text-slate-400 text-center py-6">لا توجد علاجات شهرية متأخرة حاليًا.</p>
             )}
           </div>
-
-          <button
-            onClick={() => onNavigate('monthly')}
-            className="mt-4 w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition"
-          >
-            إدارة جميع العلاجات الشهرية ({monthlyPlans.length})
-          </button>
         </div>
-      </div>
-
-      {/* آخر الفواتير التي تم إنشاؤها */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-extrabold text-slate-900">آخر الفواتير والمطالبات المسجلة</h3>
-          <button
-            onClick={() => onNavigate('history')}
-            className="text-xs font-bold text-emerald-700 hover:underline"
-          >
-            عرض السجل الكامل
-          </button>
-        </div>
-
-        {invoices.length === 0 ? (
-          <div className="text-center py-10 text-slate-500 text-xs">
-            لا توجد فواتير مسجلة بعد. ابدأ برفع مستند تأمين من صفحة إنشاء الفواتير.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-500 bg-slate-50/70">
-                  <th className="py-3 px-4 font-bold">رقم الفاتورة</th>
-                  <th className="py-3 px-4 font-bold">الشركة</th>
-                  <th className="py-3 px-4 font-bold">اسم المريض</th>
-                  <th className="py-3 px-4 font-bold">رقم الكارنيه</th>
-                  <th className="py-3 px-4 font-bold">التاريخ</th>
-                  <th className="py-3 px-4 font-bold">المطلوب من الشركة</th>
-                  <th className="py-3 px-4 font-bold">إجراء</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {invoices.slice(0, 6).map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50 transition">
-                    <td className="py-3 px-4 font-extrabold text-emerald-800">{inv.invoiceNumber}</td>
-                    <td className="py-3 px-4">
-                      <CompanyBadge company={inv.company} />
-                    </td>
-                    <td className="py-3 px-4 font-bold text-slate-900">{inv.patientName}</td>
-                    <td className="py-3 px-4 font-mono text-slate-700">{inv.cardNumber}</td>
-                    <td className="py-3 px-4 text-slate-600">{inv.claimDate}</td>
-                    <td className="py-3 px-4 font-extrabold text-emerald-700">{formatCurrency(inv.companyDueAmount)} ج.م</td>
-                    <td className="py-3 px-4">
-                      <button
-                        onClick={() => onOpenInvoice(inv)}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[11px]"
-                      >
-                        عرض وطباعة
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-function StatCard({ title, value, unit, icon: Icon, accent, onClick }) {
-  const colors = {
-    emerald: 'bg-emerald-50 text-emerald-700',
-    blue: 'bg-blue-50 text-blue-700',
-    teal: 'bg-teal-50 text-teal-700',
-    amber: 'bg-amber-50 text-amber-700',
-    rose: 'bg-rose-50 text-rose-700',
-    indigo: 'bg-indigo-50 text-indigo-700'
-  };
+function KpiCard({ title, value, accent = "text-slate-900", onClick }) {
   return (
     <div
       onClick={onClick}
-      className="cursor-pointer bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-emerald-400 transition"
+      className={`bg-white p-4 rounded-2xl border border-slate-200 shadow-sm ${
+        onClick ? "cursor-pointer hover:border-emerald-400 transition" : ""
+      }`}
     >
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] font-bold text-slate-500">{title}</span>
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${colors[accent] || colors.emerald}`}>
-          <Icon className="w-4 h-4" />
-        </div>
-      </div>
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-xl font-black text-slate-900">{value}</span>
-        <span className="text-[11px] font-bold text-slate-400">{unit}</span>
-      </div>
+      <span className="text-xs text-slate-500 font-semibold block mb-1">{title}</span>
+      <span className={`text-lg font-extrabold ${accent}`}>{value}</span>
     </div>
   );
 }
 
-function CompanyBadge({ company }) {
-  const found = COMPANIES.find((c) => c.id === company) || COMPANIES[0];
-  return (
-    <span className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-extrabold ${found.bg} ${found.text}`}>
-      {found.id}
-    </span>
-  );
-}
-
 // ============================================================================
-// ثالثًا ورابعًا: صفحة إنشاء الفواتير وقراءة المستندات الذكية (Smart OCR)
+// 6. صفحة إنشاء وتعديل الفواتير وقراءة المستندات (Smart OCR)
 // ============================================================================
-function CreateInvoiceView({ user, settings, invoices, draftFromMonthly, onClearDraft, onSaved, showToast }) {
-  const [company, setCompany] = useState('AXA');
-  const [uploadedFile, setUploadedFile] = useState(null); // { name, type, previewUrl, base64 }
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrWarnings, setOcrWarnings] = useState([]);
-  const [ocrNotes, setOcrNotes] = useState('');
+function InvoiceEditorView({ userId, settings, editingInvoice, prefillTreatment, onSaved }) {
+  const [company, setCompany] = useState("AXA");
+  const [filePreview, setFilePreview] = useState(null);
+  const [fileType, setFileType] = useState("");
+  const [loadingOcr, setLoadingOcr] = useState(false);
+  const [ocrError, setOcrError] = useState("");
+  const [warnings, setWarnings] = useState([]);
+  const [isMonthly, setIsMonthly] = useState(false);
+  const [nextDueDate, setNextDueDate] = useState("");
 
-  // بيانات المريض والمطالبة
-  const [patientName, setPatientName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [ticketNumber, setTicketNumber] = useState('');
-  const [approvalNumber, setApprovalNumber] = useState('');
-  const [phone, setPhone] = useState('');
-  const [nationalId, setNationalId] = useState('');
-  const [claimDate, setClaimDate] = useState(getTodayISO());
+  const [form, setForm] = useState({
+    patientName: "",
+    cardNumber: "",
+    ticketNumber: "",
+    approvalNumber: "",
+    phone: "",
+    nationalId: "",
+    claimDate: new Date().toISOString().split("T")[0],
+    discountAmount: 0,
+    patientShare: 0,
+    items: [{ id: "1", name: "", boxes: 1, strips: 0, stripsPerBox: 1, unitPrice: 0, totalPrice: 0 }],
+  });
 
-  // جدول الأدوية
-  const [medications, setMedications] = useState([
-    { id: crypto.randomUUID(), name: '', concentration: '', boxes: 1, strips: 0, unitPrice: 0 }
-  ]);
-
-  // التسويات المالية
-  const [discountMode, setDiscountMode] = useState('percent'); // percent | fixed
-  const [discountRate, setDiscountRate] = useState(settings.defaultDiscountRate ?? 10);
-  const [fixedDiscount, setFixedDiscount] = useState(0);
-
-  const [copayMode, setCopayMode] = useState('percent'); // percent | fixed
-  const [copayRate, setCopayRate] = useState(settings.defaultCopayRate ?? 10);
-  const [fixedCopay, setFixedCopay] = useState(0);
-
-  // خيار العلاج الشهري
-  const [isMonthlyTreatment, setIsMonthlyTreatment] = useState(false);
-  const [nextDueDate, setNextDueDate] = useState(getNextMonthISO(getTodayISO()));
-  const [sourceMonthlyPlanId, setSourceMonthlyPlanId] = useState(null);
-
-  const [saving, setSaving] = useState(false);
-
-  // تعبئة البيانات إذا تم فتح الصفحة من تذكير علاج شهري
   useEffect(() => {
-    if (draftFromMonthly) {
-      setCompany(draftFromMonthly.company || 'AXA');
-      setPatientName(draftFromMonthly.patientName || '');
-      setCardNumber(draftFromMonthly.cardNumber || '');
-      setTicketNumber(draftFromMonthly.ticketNumber || '');
-      setApprovalNumber(draftFromMonthly.approvalNumber || '');
-      setPhone(draftFromMonthly.phone || '');
-      setNationalId(draftFromMonthly.nationalId || '');
-      setClaimDate(getTodayISO());
-      if (Array.isArray(draftFromMonthly.medications) && draftFromMonthly.medications.length > 0) {
-        setMedications(
-          draftFromMonthly.medications.map((m) => ({
-            id: crypto.randomUUID(),
-            name: m.name || '',
-            concentration: m.concentration || '',
-            boxes: Number(m.boxes) || 0,
-            strips: Number(m.strips) || 0,
-            unitPrice: Number(m.unitPrice) || 0
-          }))
-        );
-      }
-      setIsMonthlyTreatment(true);
-      setNextDueDate(getNextMonthISO(getTodayISO()));
-      setSourceMonthlyPlanId(draftFromMonthly.id);
-      showToast(`تم تحميل بيانات العلاج الشهري للمريض: ${draftFromMonthly.patientName} للمراجعة`, 'info');
-      onClearDraft();
+    if (editingInvoice) {
+      setCompany(editingInvoice.company);
+      setForm({
+        patientName: editingInvoice.patientName || "",
+        cardNumber: editingInvoice.cardNumber || "",
+        ticketNumber: editingInvoice.ticketNumber || "",
+        approvalNumber: editingInvoice.approvalNumber || "",
+        phone: editingInvoice.phone || "",
+        nationalId: editingInvoice.nationalId || "",
+        claimDate: editingInvoice.claimDate || new Date().toISOString().split("T")[0],
+        discountAmount: editingInvoice.discountAmount || 0,
+        patientShare: editingInvoice.patientShare || 0,
+        items: editingInvoice.items || [],
+      });
+    } else if (prefillTreatment) {
+      setCompany(prefillTreatment.company);
+      setForm({
+        patientName: prefillTreatment.patientName || "",
+        cardNumber: prefillTreatment.cardNumber || "",
+        ticketNumber: "",
+        approvalNumber: "",
+        phone: prefillTreatment.phone || "",
+        nationalId: prefillTreatment.nationalId || "",
+        claimDate: new Date().toISOString().split("T")[0],
+        discountAmount: prefillTreatment.discountAmount || 0,
+        patientShare: prefillTreatment.patientShare || 0,
+        items: prefillTreatment.items || [],
+      });
     }
-  }, [draftFromMonthly]);
+  }, [editingInvoice, prefillTreatment]);
 
-  // رفع وقراءة المستند (PDF أو صورة)
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      showToast('صيغة الملف غير مدعومة. يرجى رفع ملف PDF أو صورة JPG / PNG.', 'error');
-      return;
-    }
-
-    const previewUrl = URL.createObjectURL(file);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result.split(',')[1];
-      setUploadedFile({ name: file.name, type: file.type, previewUrl, base64 });
-      await runSmartOCR(base64, file.type);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // تشغيل محرك OCR الذكي وفق قواعد الشركة المختارة
-  const runSmartOCR = async (base64, mimeType) => {
-    setOcrLoading(true);
-    setOcrWarnings([]);
-    setOcrNotes('');
+    setOcrError("");
+    setWarnings([]);
+    setFileType(file.type);
+    setFilePreview(URL.createObjectURL(file));
+    setLoadingOcr(true);
 
     try {
-      const extracted = await extractDocumentWithGemini({
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const rawExtracted = await analyzeDocumentWithAI({
         fileBase64: base64,
-        mimeType,
+        mimeType: file.type,
         company,
-        customApiKey: settings.customApiKey,
-        customApiEndpoint: settings.customApiEndpoint
+        apiKey: settings.geminiApiKey,
       });
 
-      setPatientName(extracted.patientName || '');
-      setCardNumber(extracted.cardNumber || '');
-      setPhone(extracted.phone || '');
-      setNationalId(extracted.nationalId || '');
-      if (extracted.claimDate) setClaimDate(extracted.claimDate);
-
-      if (company === 'MedRight') {
-        setTicketNumber(extracted.ticketNumber || '');
-        setApprovalNumber(extracted.approvalNumber || '');
-      } else {
-        setTicketNumber('');
-        setApprovalNumber('');
-      }
-
-      if (Array.isArray(extracted.medications) && extracted.medications.length > 0) {
-        const parsedMeds = extracted.medications.map((m) => {
-          let boxes = Number(m.boxes) || 0;
-          let strips = Number(m.strips) || 0;
-          let cleanName = m.name || '';
-
-          // تطبيق قاعدة MedRight للشرطة (الرقم على يسار الشرطة = علب، والرقم على يمينها = أشرطة)
-          if (company === 'MedRight') {
-            if (m.rawQuantity && String(m.rawQuantity).includes('-')) {
-              const parsed = parseMedRightDashQuantity(m.rawQuantity, boxes, strips);
-              boxes = parsed.boxes;
-              strips = parsed.strips;
-            }
-            cleanName = cleanMedRightDrugName(cleanName);
-          }
-
-          return {
-            id: crypto.randomUUID(),
-            name: cleanName,
-            concentration: m.concentration || '',
-            boxes,
-            strips,
-            unitPrice: Number(m.unitPrice) || 0
-          };
-        });
-        setMedications(parsedMeds);
-      }
-
-      // إذا وجدت خصومات أو تحمل مريض مقروءة من المستند
-      if (typeof extracted.discountAmount === 'number' && extracted.discountAmount > 0) {
-        setDiscountMode('fixed');
-        setFixedDiscount(extracted.discountAmount);
-      }
-      if (typeof extracted.patientShareAmount === 'number' && extracted.patientShareAmount > 0) {
-        setCopayMode('fixed');
-        setFixedCopay(extracted.patientShareAmount);
-      }
-
-      setOcrWarnings(extracted.lowConfidenceFields || []);
-      setOcrNotes(extracted.extractionNotes || '');
-      showToast(`تمت قراءة مستند ${company} بنجاح! يرجى مراجعة الحقول قبل الحفظ.`);
+      const normalized = normalizeExtractedData(rawExtracted, company);
+      setForm({
+        patientName: normalized.patientName,
+        cardNumber: normalized.cardNumber,
+        ticketNumber: normalized.ticketNumber,
+        approvalNumber: normalized.approvalNumber,
+        phone: normalized.phone,
+        nationalId: normalized.nationalId,
+        claimDate: normalized.claimDate,
+        discountAmount: normalized.discountAmount,
+        patientShare: normalized.patientShare,
+        items: normalized.items.length ? normalized.items : form.items,
+      });
+      setWarnings(normalized.warnings);
     } catch (err) {
-      showToast('تعذرت القراءة التلقائية للمستند، يمكنك إدخال البيانات يدويًا بجانب المستند المعروض.', 'error');
-      setOcrWarnings(['يرجى مراجعة جميع البيانات يدويًا من المستند المعروض على اليسار']);
+      setOcrError(err.message);
     } finally {
-      setOcrLoading(false);
+      setLoadingOcr(false);
     }
   };
 
-  // تحديث صف دواء
-  const updateMedication = (id, field, value) => {
-    setMedications((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, [field]: value } : m))
-    );
+  const updateItem = (idx, field, value) => {
+    const updated = [...form.items];
+    const item = { ...updated[idx], [field]: value };
+    const boxes = Number(item.boxes) || 0;
+    const strips = Number(item.strips) || 0;
+    const spb = Number(item.stripsPerBox) || 1;
+    const price = Number(item.unitPrice) || 0;
+    item.totalPrice = Number((price * (boxes + strips / spb)).toFixed(2));
+    updated[idx] = item;
+    setForm({ ...form, items: updated });
   };
 
-  const addMedicationRow = () => {
-    setMedications((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), name: '', concentration: '', boxes: 1, strips: 0, unitPrice: 0 }
-    ]);
-  };
+  const financials = calculateInvoiceFinancials(
+    form.items,
+    { discountAmount: form.discountAmount, patientShare: form.patientShare },
+    settings
+  );
 
-  const removeMedicationRow = (id) => {
-    if (medications.length === 1) return;
-    setMedications((prev) => prev.filter((m) => m.id !== id));
-  };
+  const handleSave = async () => {
+    if (!form.patientName.trim()) {
+      setOcrError("يرجى إدخال اسم المريض قبل حفظ الفاتورة.");
+      return;
+    }
 
-  // الحسابات المالية الدقيقة للفاتورة
-  const financials = useMemo(() => {
-    // حساب إجمالي كل صنف: (عدد العلب + عدد الأشرطة * 0.5 افتراضيًا أو بسعر الوحدة المدخل للكمية)
-    // ملاحظة: إذا أدخل الصيدلي سعر الوحدة للعلبة، يمكن احتساب العلبة كاملة والشريط كـ 1/3 علبة أو إدخال سعر الوحدة الإجمالي للصنف
-    const itemsWithTotals = medications.map((m) => {
-      const boxes = Number(m.boxes) || 0;
-      const strips = Number(m.strips) || 0;
-      const price = Number(m.unitPrice) || 0;
-      // إذا كان هناك أشرطة بدون علب، يُعامل سعر الوحدة كسعر الشريط، أما إذا كان مع علب فيُحتسب الشريط بـ ثلث علبة تقريبيًا أو كوحدة مستقلة
-      const effectiveQty = boxes > 0 ? boxes + strips / 3 : strips > 0 ? strips : 0;
-      const rowTotal = Math.round(effectiveQty * price * 100) / 100;
-      return { ...m, rowTotal };
-    });
-
-    const totalDrugsAmount = itemsWithTotals.reduce((sum, item) => sum + item.rowTotal, 0);
-
-    // 1. الخصم (يُطبع باسم "خصم")
-    const discountAmount =
-      discountMode === 'percent'
-        ? Math.round(totalDrugsAmount * ((Number(discountRate) || 0) / 100) * 100) / 100
-        : Number(fixedDiscount) || 0;
-
-    // 2. تحمل المريض
-    const patientShareAmount =
-      copayMode === 'percent'
-        ? Math.round(totalDrugsAmount * ((Number(copayRate) || 0) / 100) * 100) / 100
-        : Number(fixedCopay) || 0;
-
-    // 3. المطلوب من الشركة (يُطبع باسم "المطلوب من الشركة")
-    const companyDueAmount = Math.max(0, Math.round((totalDrugsAmount - discountAmount - patientShareAmount) * 100) / 100);
-
-    // 4. صافي الربح التقديري
-    const grossMargin = totalDrugsAmount * ((Number(settings.profitMarginRate) || 18) / 100);
-    const netProfit = Math.round((grossMargin - discountAmount) * 100) / 100;
-
-    return {
-      itemsWithTotals,
-      totalDrugsAmount,
-      discountAmount,
-      patientShareAmount,
-      companyShareAmount: companyDueAmount,
-      companyDueAmount,
-      netProfit
+    const payload = {
+      company,
+      ...form,
+      ticketNumber: company === "MedRight" ? form.ticketNumber : "",
+      approvalNumber: company === "MedRight" ? form.approvalNumber : "",
+      ...financials,
+      updatedAt: serverTimestamp(),
     };
-  }, [medications, discountMode, discountRate, fixedDiscount, copayMode, copayRate, fixedCopay, settings.profitMarginRate]);
 
-  // حفظ الفاتورة في Firestore
-  const handleSaveInvoice = async (e) => {
-    e.preventDefault();
-    if (!patientName.trim()) {
-      showToast('يرجى إدخال اسم المريض قبل إنشاء الفاتورة.', 'error');
-      return;
-    }
-    if (!cardNumber.trim()) {
-      showToast(
-        company === 'MetLife'
-          ? 'يرجى إدخال رقم الكارنيه (من خانة Staff) قبل حفظ الفاتورة.'
-          : 'يرجى إدخال رقم الكارنيه قبل حفظ الفاتورة.',
-        'error'
-      );
-      return;
-    }
-
-    const validMeds = financials.itemsWithTotals.filter((m) => m.name.trim() !== '');
-    if (validMeds.length === 0) {
-      showToast('يرجى إدخال صنف دواء واحد على الأقل.', 'error');
-      return;
-    }
-
-    // منع تكرار نفس المطالبة لنفس المريض في نفس الشهر عند التجديد الشهري
-    if (sourceMonthlyPlanId) {
-      const currentMonth = claimDate.slice(0, 7);
-      const duplicate = invoices.find(
-        (inv) => inv.sourceMonthlyPlanId === sourceMonthlyPlanId && (inv.claimDate || '').startsWith(currentMonth)
-      );
-      if (duplicate) {
-        showToast(`تم إصدار فاتورة هذا الشهر (${currentMonth}) لهذا العلاج الشهري بالفعل برقم ${duplicate.invoiceNumber}.`, 'error');
-        return;
-      }
-    }
-
-    setSaving(true);
-    try {
-      const invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(4, '0')}`;
-      const nowISO = new Date().toISOString();
-
-      const invoicePayload = {
+    if (editingInvoice) {
+      await updateDoc(doc(db, `pharmacies/${userId}/invoices/${editingInvoice.id}`), payload);
+      onSaved({ ...editingInvoice, ...payload });
+    } else {
+      const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+      const newDoc = {
+        ...payload,
         invoiceNumber,
-        company,
-        patientName: patientName.trim(),
-        cardNumber: cardNumber.trim(),
-        ticketNumber: company === 'MedRight' ? ticketNumber.trim() : '',
-        approvalNumber: company === 'MedRight' ? approvalNumber.trim() : '',
-        phone: phone.trim(),
-        nationalId: nationalId.trim(),
-        claimDate,
-        medications: validMeds,
-        totalDrugsAmount: financials.totalDrugsAmount,
-        discountAmount: financials.discountAmount,
-        patientShareAmount: financials.patientShareAmount,
-        companyShareAmount: financials.companyShareAmount,
-        companyDueAmount: financials.companyDueAmount,
-        netProfit: financials.netProfit,
-        isMonthlyTreatment,
-        sourceMonthlyPlanId: sourceMonthlyPlanId || null,
-        status: 'معتمدة',
-        createdAt: nowISO,
-        updatedAt: nowISO
+        status: "معتمدة",
+        createdAt: serverTimestamp(),
       };
+      const ref = await addDoc(collection(db, `pharmacies/${userId}/invoices`), newDoc);
 
-      const docRef = await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'invoices'), invoicePayload);
-
-      // إذا كان علاجًا شهريًا، احفظه أو حدّث موعده القادم
-      if (isMonthlyTreatment) {
-        const planData = {
+      if (isMonthly) {
+        const due = nextDueDate || new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
+        await addDoc(collection(db, `pharmacies/${userId}/monthlyTreatments`), {
           company,
-          patientName: patientName.trim(),
-          cardNumber: cardNumber.trim(),
-          ticketNumber: company === 'MedRight' ? ticketNumber.trim() : '',
-          approvalNumber: company === 'MedRight' ? approvalNumber.trim() : '',
-          phone: phone.trim(),
-          nationalId: nationalId.trim(),
-          medications: validMeds,
-          nextDueDate: nextDueDate || getNextMonthISO(claimDate),
-          lastFulfilledMonth: claimDate.slice(0, 7),
+          patientName: form.patientName,
+          cardNumber: form.cardNumber,
+          phone: form.phone,
+          nationalId: form.nationalId,
+          items: form.items,
+          discountAmount: form.discountAmount,
+          patientShare: form.patientShare,
+          nextDueDate: due,
+          lastBilledMonth: form.claimDate.slice(0, 7),
           active: true,
-          updatedAt: nowISO
-        };
-
-        if (sourceMonthlyPlanId) {
-          await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'monthlyTreatments', sourceMonthlyPlanId), planData);
-        } else {
-          await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'monthlyTreatments'), {
-            ...planData,
-            createdAt: nowISO
-          });
-        }
+          createdAt: serverTimestamp(),
+        });
       }
 
-      onSaved({ id: docRef.id, ...invoicePayload });
-    } catch (err) {
-      showToast('حدث خطأ أثناء حفظ الفاتورة: ' + err.message, 'error');
-    } finally {
-      setSaving(false);
+      if (prefillTreatment) {
+        const nextMonthDate = new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
+        await updateDoc(doc(db, `pharmacies/${userId}/monthlyTreatments/${prefillTreatment.id}`), {
+          lastBilledMonth: form.claimDate.slice(0, 7),
+          nextDueDate: nextMonthDate,
+        });
+      }
+
+      onSaved({ id: ref.id, ...newDoc });
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* رأس الصفحة واختيار شركة التأمين */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <h2 className="text-xl font-black text-slate-900">إنشاء فاتورة تأمين وقراءة المستندات (Smart OCR)</h2>
-            <p className="text-xs text-slate-500 mt-1">
-              اختر شركة التأمين أولًا لتطبيق قواعد القراءة المخصصة لها، ثم ارفع ملف PDF أو صورة الروشتة/الموافقة.
-            </p>
-          </div>
-          {uploadedFile && (
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-sm text-slate-700 ml-2">شركة التأمين:</span>
+          {["AXA", "MetLife", "MedRight"].map((comp) => (
             <button
+              key={comp}
               type="button"
-              onClick={() => runSmartOCR(uploadedFile.base64, uploadedFile.type)}
-              disabled={ocrLoading}
-              className="px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-2 border border-emerald-200"
+              onClick={() => setCompany(comp)}
+              className={`px-4 py-2 rounded-xl font-bold text-sm transition ${
+                company === comp ? "bg-emerald-700 text-white shadow" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
             >
-              <RefreshCw className={`w-4 h-4 ${ocrLoading ? 'animate-spin' : ''}`} />
-              <span>إعادة قراءة المستند بالذكاء الاصطناعي</span>
+              {comp}
             </button>
-          )}
-        </div>
-
-        {/* أزرار اختيار شركة التأمين */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {COMPANIES.map((c) => {
-            const selected = company === c.id;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setCompany(c.id)}
-                className={`p-4 rounded-2xl border-2 text-right transition flex items-center justify-between ${
-                  selected
-                    ? 'border-emerald-600 bg-emerald-50/60 shadow-md'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
-                }`}
-              >
-                <div>
-                  <div className="font-black text-sm text-slate-900">{c.name}</div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    {c.id === 'MetLife' && 'استخراج الكارنيه من خانة Staff حصريًا'}
-                    {c.id === 'MedRight' && 'دعم رقم التذكرة والموافقة وصيغة العلب-الأشرطة'}
-                    {c.id === 'AXA' && 'قراءة قياسية لموافقات وروشتات أكسا'}
-                  </div>
-                </div>
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                    selected ? 'bg-emerald-600 text-white' : 'border border-slate-300'
-                  }`}
-                >
-                  {selected && <Check className="w-3.5 h-3.5" />}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* منطقة رفع المستند */}
-        <div className="mt-5">
-          <label className="cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-emerald-300 hover:border-emerald-600 bg-emerald-50/30 hover:bg-emerald-50/70 rounded-2xl p-6 transition">
-            <input
-              type="file"
-              accept=".pdf,image/jpeg,image/png,image/webp"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            {ocrLoading ? (
-              <div className="flex flex-col items-center text-center">
-                <RefreshCw className="w-8 h-8 text-emerald-700 animate-spin mb-2" />
-                <span className="text-sm font-extrabold text-emerald-900">
-                  جاري قراءة مستند {company} واستخراج بيانات المريض والأدوية...
-                </span>
-                <span className="text-xs text-slate-500 mt-1">يتم تطبيق قواعد {company} بدقة</span>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center text-center">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-2">
-                  <Upload className="w-6 h-6" />
-                </div>
-                <span className="text-sm font-extrabold text-slate-800">
-                  {uploadedFile ? `تم رفع: ${uploadedFile.name} (اضغط لاستبدال الملف)` : `اضغط لرفع مستند تأمين ${company} (PDF أو JPG أو PNG)`}
-                </span>
-                <span className="text-xs text-slate-500 mt-1">
-                  سيتم عرض المستند الأصلي بجانب الاستمارة للمقارنة والمراجعة المباشرة
-                </span>
-              </div>
-            )}
-          </label>
-        </div>
-
-        {/* تنبيهات المراجعة الذكية */}
-        {(ocrWarnings.length > 0 || ocrNotes) && (
-          <div className="mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
-            <div className="font-extrabold flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600" />
-              <span>تنبيهات المراجعة من قارئ المستندات:</span>
-            </div>
-            {ocrNotes && <p className="text-amber-800">{ocrNotes}</p>}
-            {ocrWarnings.length > 0 && (
-              <ul className="list-disc list-inside text-amber-800">
-                {ocrWarnings.map((w, idx) => (
-                  <li key={idx}>{w}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* الشاشة المنقسمة: استمارة البيانات والأدوية + عارض المستند الأصلي */}
-      <form onSubmit={handleSaveInvoice} className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* العمود الأيمن: البيانات المستخرجة وجدول الأدوية والحسابات */}
-        <div className={`${uploadedFile ? 'xl:col-span-7' : 'xl:col-span-12'} space-y-6`}>
-          {/* بيانات المريض والتأمين */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
-            <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
-              <User className="w-4 h-4 text-emerald-700" />
-              <span>بيانات المريض والتأمين ({company})</span>
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">اسم المريض *</label>
-                <input
-                  type="text"
-                  required
-                  value={patientName}
-                  onChange={(e) => setPatientName(e.target.value)}
-                  placeholder="الاسم رباعي كما بالمستند"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-600 outline-none text-xs font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  رقم الكارنيه *
-                  {company === 'MetLife' && (
-                    <span className="text-[10px] text-emerald-700 font-extrabold mr-1">(خانة Staff فقط)</span>
-                  )}
-                </label>
-                <input
-                  type="text"
-                  required
-                  dir="ltr"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  placeholder={company === 'MetLife' ? 'Staff ID Number' : 'رقم الكارنيه'}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-600 outline-none text-xs font-mono text-left font-bold"
-                />
-              </div>
-
-              {/* حقول MedRight الحصرية */}
-              {company === 'MedRight' && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold text-amber-800 mb-1">رقم التذكرة (MedRight)</label>
-                    <input
-                      type="text"
-                      dir="ltr"
-                      value={ticketNumber}
-                      onChange={(e) => setTicketNumber(e.target.value)}
-                      placeholder="Ticket No."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50/30 focus:border-amber-600 outline-none text-xs font-mono text-left font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-amber-800 mb-1">رقم الموافقة (MedRight)</label>
-                    <input
-                      type="text"
-                      dir="ltr"
-                      value={approvalNumber}
-                      onChange={(e) => setApprovalNumber(e.target.value)}
-                      placeholder="Approval No."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50/30 focus:border-amber-600 outline-none text-xs font-mono text-left font-bold"
-                    />
-                  </div>
-                </>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">رقم الهاتف</label>
-                <input
-                  type="text"
-                  dir="ltr"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="01xxxxxxxxx"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-600 outline-none text-xs font-mono text-left"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">الرقم القومي</label>
-                <input
-                  type="text"
-                  dir="ltr"
-                  value={nationalId}
-                  onChange={(e) => setNationalId(e.target.value)}
-                  placeholder="14 رقم"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-600 outline-none text-xs font-mono text-left"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ المطالبة *</label>
-                <input
-                  type="date"
-                  required
-                  value={claimDate}
-                  onChange={(e) => setClaimDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-600 outline-none text-xs font-semibold"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* جدول الأدوية والكميات */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                  <Pill className="w-4 h-4 text-emerald-700" />
-                  <span>الأدوية والكميات والأسعار</span>
-                </h3>
-                {company === 'MedRight' && (
-                  <p className="text-[11px] text-amber-700 font-semibold mt-0.5">
-                    ملاحظة MedRight: صيغة (2-3) تعني 2 علبة (يسار) و 3 أشرطة (يمين).
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={addMedicationRow}
-                className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-1.5 border border-emerald-200"
-              >
-                <Plus className="w-4 h-4" />
-                <span>إضافة صنف دواء</span>
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-xs">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600">
-                    <th className="py-2.5 px-2 font-bold">#</th>
-                    <th className="py-2.5 px-2 font-bold min-w-[160px]">اسم الدواء</th>
-                    <th className="py-2.5 px-2 font-bold w-24">التركيز/الحجم</th>
-                    <th className="py-2.5 px-2 font-bold w-20 text-center">عدد العلب</th>
-                    <th className="py-2.5 px-2 font-bold w-20 text-center">الأشرطة</th>
-                    <th className="py-2.5 px-2 font-bold w-24">سعر الوحدة</th>
-                    <th className="py-2.5 px-2 font-bold w-24">الإجمالي</th>
-                    <th className="py-2.5 px-2 font-bold w-10"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {financials.itemsWithTotals.map((med, idx) => (
-                    <tr key={med.id}>
-                      <td className="py-2 px-2 font-bold text-slate-400">{idx + 1}</td>
-                      <td className="py-2 px-2">
-                        <input
-                          type="text"
-                          required
-                          dir="ltr"
-                          value={med.name}
-                          onChange={(e) => updateMedication(med.id, 'name', e.target.value)}
-                          placeholder="Drug Name"
-                          className="w-full px-2.5 py-2 rounded-lg border border-slate-200 focus:border-emerald-600 outline-none text-xs font-semibold text-left"
-                        />
-                      </td>
-                      <td className="py-2 px-2">
-                        <input
-                          type="text"
-                          dir="ltr"
-                          value={med.concentration}
-                          onChange={(e) => updateMedication(med.id, 'concentration', e.target.value)}
-                          placeholder="500mg"
-                          className="w-full px-2 py-2 rounded-lg border border-slate-200 focus:border-emerald-600 outline-none text-xs text-left"
-                        />
-                      </td>
-                      <td className="py-2 px-2">
-                        <input
-                          type="number"
-                          min="0"
-                          value={med.boxes}
-                          onChange={(e) => updateMedication(med.id, 'boxes', Number(e.target.value))}
-                          className="w-full px-2 py-2 rounded-lg border border-slate-200 focus:border-emerald-600 outline-none text-xs text-center font-bold"
-                        />
-                      </td>
-                      <td className="py-2 px-2">
-                        <input
-                          type="number"
-                          min="0"
-                          value={med.strips}
-                          onChange={(e) => updateMedication(med.id, 'strips', Number(e.target.value))}
-                          className="w-full px-2 py-2 rounded-lg border border-slate-200 focus:border-emerald-600 outline-none text-xs text-center font-bold"
-                        />
-                      </td>
-                      <td className="py-2 px-2">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={med.unitPrice}
-                          onChange={(e) => updateMedication(med.id, 'unitPrice', Number(e.target.value))}
-                          className="w-full px-2 py-2 rounded-lg border border-slate-200 focus:border-emerald-600 outline-none text-xs text-center font-mono"
-                        />
-                      </td>
-                      <td className="py-2 px-2 font-extrabold text-slate-900">
-                        {formatCurrency(med.rowTotal)}
-                      </td>
-                      <td className="py-2 px-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => removeMedicationRow(med.id)}
-                          className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
-                          title="حذف الصنف"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* التسويات المالية وخيار العلاج الشهري */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-6">
-            <h3 className="text-base font-extrabold text-slate-900">الحسابات المالية والتسويات</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* ضبط الخصم */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-extrabold text-slate-800">خصم</span>
-                  <div className="flex rounded-lg overflow-hidden border border-slate-300 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => setDiscountMode('percent')}
-                      className={`px-2.5 py-1 font-bold ${discountMode === 'percent' ? 'bg-emerald-700 text-white' : 'bg-white text-slate-600'}`}
-                    >
-                      نسبة %
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDiscountMode('fixed')}
-                      className={`px-2.5 py-1 font-bold ${discountMode === 'fixed' ? 'bg-emerald-700 text-white' : 'bg-white text-slate-600'}`}
-                    >
-                      مبلغ ثابت
-                    </button>
-                  </div>
-                </div>
-                {discountMode === 'percent' ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.5"
-                      value={discountRate}
-                      onChange={(e) => setDiscountRate(e.target.value)}
-                      className="w-24 px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold"
-                    />
-                    <span className="text-xs text-slate-500">% = {formatCurrency(financials.discountAmount)} ج.م</span>
-                  </div>
-                ) : (
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={fixedDiscount}
-                    onChange={(e) => setFixedDiscount(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold"
-                  />
-                )}
-              </div>
-
-              {/* ضبط تحمل المريض */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-extrabold text-slate-800">تحمل المريض</span>
-                  <div className="flex rounded-lg overflow-hidden border border-slate-300 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => setCopayMode('percent')}
-                      className={`px-2.5 py-1 font-bold ${copayMode === 'percent' ? 'bg-emerald-700 text-white' : 'bg-white text-slate-600'}`}
-                    >
-                      نسبة %
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCopayMode('fixed')}
-                      className={`px-2.5 py-1 font-bold ${copayMode === 'fixed' ? 'bg-emerald-700 text-white' : 'bg-white text-slate-600'}`}
-                    >
-                      مبلغ ثابت
-                    </button>
-                  </div>
-                </div>
-                {copayMode === 'percent' ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.5"
-                      value={copayRate}
-                      onChange={(e) => setCopayRate(e.target.value)}
-                      className="w-24 px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold"
-                    />
-                    <span className="text-xs text-slate-500">% = {formatCurrency(financials.patientShareAmount)} ج.م</span>
-                  </div>
-                ) : (
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={fixedCopay}
-                    onChange={(e) => setFixedCopay(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold"
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* ملخص الأرقام النهائية */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 rounded-2xl bg-emerald-950 text-white">
-              <div>
-                <div className="text-[11px] text-emerald-300">إجمالي قيمة الأدوية</div>
-                <div className="text-base font-black mt-0.5">{formatCurrency(financials.totalDrugsAmount)}</div>
-              </div>
-              <div>
-                <div className="text-[11px] text-emerald-300">خصم</div>
-                <div className="text-base font-black mt-0.5 text-rose-300">{formatCurrency(financials.discountAmount)}</div>
-              </div>
-              <div>
-                <div className="text-[11px] text-emerald-300">تحمل المريض</div>
-                <div className="text-base font-black mt-0.5 text-amber-300">{formatCurrency(financials.patientShareAmount)}</div>
-              </div>
-              <div>
-                <div className="text-[11px] text-emerald-300">المطلوب من الشركة</div>
-                <div className="text-lg font-black mt-0.5 text-emerald-300">{formatCurrency(financials.companyDueAmount)}</div>
-              </div>
-              <div>
-                <div className="text-[11px] text-emerald-300">صافي الربح</div>
-                <div className="text-base font-black mt-0.5 text-sky-300">{formatCurrency(financials.netProfit)}</div>
-              </div>
-            </div>
-
-            {/* خيار تسجيل العلاج كعلاج شهري متكرر */}
-            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isMonthlyTreatment}
-                  onChange={(e) => setIsMonthlyTreatment(e.target.checked)}
-                  className="w-5 h-5 rounded text-emerald-700 focus:ring-emerald-600"
-                />
-                <div>
-                  <span className="text-xs font-extrabold text-slate-900 block">
-                    تسجيل هذه المطالبة ضمن نظام «العلاج الشهري»
-                  </span>
-                  <span className="text-[11px] text-slate-600">
-                    سيقوم النظام بتذكيرك في الشهر القادم لتجهيز الفاتورة بضغطة زر دون تكرار تلقائي
-                  </span>
-                </div>
-              </label>
-
-              {isMonthlyTreatment && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-700">موعد الشهر القادم:</span>
-                  <input
-                    type="date"
-                    value={nextDueDate}
-                    onChange={(e) => setNextDueDate(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-amber-300 bg-white text-xs font-bold"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-8 py-3.5 rounded-2xl bg-gradient-to-l from-emerald-700 to-teal-800 hover:from-emerald-800 hover:to-teal-900 text-white font-extrabold text-sm shadow-xl shadow-emerald-700/25 flex items-center gap-2 transition disabled:opacity-60"
-              >
-                {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-                <span>إنشاء وحفظ الفاتورة في السحابة</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* العمود الأيسر: عارض المستند الأصلي للمقارنة البصرية (Split View) */}
-        {uploadedFile && (
-          <div className="xl:col-span-5">
-            <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-sm sticky top-6">
-              <div className="flex items-center justify-between mb-3 px-2">
-                <span className="text-xs font-extrabold text-slate-800 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-700" />
-                  <span>المستند الأصلي للمقارنة ({uploadedFile.name})</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setUploadedFile(null)}
-                  className="text-xs text-rose-600 hover:underline font-bold"
-                >
-                  إغلاق العارض
-                </button>
-              </div>
-              <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 h-[680px]">
-                {uploadedFile.type === 'application/pdf' ? (
-                  <iframe
-                    src={uploadedFile.previewUrl}
-                    title="PDF Document Viewer"
-                    className="w-full h-full"
-                  />
-                ) : (
-                  <img
-                    src={uploadedFile.previewUrl}
-                    alt="Insurance Document"
-                    className="w-full h-full object-contain"
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </form>
-    </div>
-  );
-}
-
-// ============================================================================
-// خامسًا: نظام العلاج الشهري (MonthlyTreatmentView)
-// ============================================================================
-function MonthlyTreatmentView({ user, monthlyPlans, invoices, onRenewPlan, showToast }) {
-  const today = getTodayISO();
-
-  const togglePlanStatus = async (plan) => {
-    try {
-      await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'monthlyTreatments', plan.id), {
-        active: !plan.active
-      });
-      showToast(plan.active ? 'تم إيقاف التذكير الشهري مؤقتًا' : 'تم تفعيل التذكير الشهري');
-    } catch (err) {
-      showToast('تعذر تحديث الحالة: ' + err.message, 'error');
-    }
-  };
-
-  const deletePlan = async (plan) => {
-    try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'monthlyTreatments', plan.id));
-      showToast('تم حذف خطة العلاج الشهري');
-    } catch (err) {
-      showToast('تعذر الحذف: ' + err.message, 'error');
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-black text-slate-900">نظام إدارة العلاجات الشهرية المتكررة</h2>
-          <p className="text-xs text-slate-500 mt-1">
-            متابعة المرضى أصحاب الروشتات الشهرية وتجهيز مطالبات الشهر الجديد بضغطة زر مع المراجعة الكاملة قبل الحفظ.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 text-xs font-bold">
-          <span className="px-3 py-1.5 rounded-xl bg-amber-100 text-amber-800">
-            مستحق الآن: {monthlyPlans.filter((p) => p.active && p.nextDueDate <= today).length}
-          </span>
-          <span className="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800">
-            إجمالي المسجلين: {monthlyPlans.length}
-          </span>
-        </div>
-      </div>
-
-      {monthlyPlans.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80">
-          <CalendarClock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-base font-extrabold text-slate-800">لا توجد علاجات شهرية مسجلة بعد</h3>
-          <p className="text-xs text-slate-500 mt-1">
-            عند إنشاء أي فاتورة، يمكنك تفعيل خيار «تسجيل هذه المطالبة ضمن نظام العلاج الشهري» ليتم حفظها هنا تلقائيًا.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {monthlyPlans.map((plan) => {
-            const isDue = plan.active && plan.nextDueDate <= today;
-            const currentMonth = today.slice(0, 7);
-            const alreadyIssuedThisMonth = invoices.some(
-              (inv) => inv.sourceMonthlyPlanId === plan.id && (inv.claimDate || '').startsWith(currentMonth)
-            );
-
-            return (
-              <div
-                key={plan.id}
-                className={`rounded-3xl p-5 border transition flex flex-col justify-between bg-white shadow-sm ${
-                  isDue ? 'border-amber-400 ring-2 ring-amber-400/20' : 'border-slate-200/80'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <CompanyBadge company={plan.company} />
-                    {isDue ? (
-                      <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-extrabold">
-                        مستحق التجديد
-                      </span>
-                    ) : plan.active ? (
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                        نشط
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[11px] font-bold">
-                        متوقف
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="text-base font-extrabold text-slate-900">{plan.patientName}</h3>
-                  <div className="text-xs text-slate-500 font-mono mt-0.5">الكارنيه: {plan.cardNumber}</div>
-
-                  <div className="mt-3 p-3 rounded-2xl bg-slate-50 text-xs space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">موعد الاستحقاق القادم:</span>
-                      <span className="font-extrabold text-slate-900">{plan.nextDueDate}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">عدد الأدوية المسجلة:</span>
-                      <span className="font-bold text-emerald-700">{plan.medications?.length || 0} أصناف</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 space-y-1">
-                    {(plan.medications || []).slice(0, 3).map((m, idx) => (
-                      <div key={idx} className="text-[11px] text-slate-600 flex items-center justify-between bg-slate-50/60 px-2.5 py-1 rounded-lg">
-                        <span className="font-semibold truncate max-w-[170px]" dir="ltr">{m.name}</span>
-                        <span className="text-slate-500">{m.boxes} علبة / {m.strips} شريط</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-5 pt-4 border-t border-slate-100 flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={alreadyIssuedThisMonth}
-                    onClick={() => onRenewPlan(plan)}
-                    className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-500 text-white text-xs font-extrabold transition"
-                  >
-                    {alreadyIssuedThisMonth ? 'تم الإصدار لهذا الشهر' : 'إنشاء فاتورة الشهر'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => togglePlanStatus(plan)}
-                    className="px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
-                  >
-                    {plan.active ? 'إيقاف' : 'تفعيل'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deletePlan(plan)}
-                    className="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600"
-                    title="حذف التذكير"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================================================
-// سادسًا: سجل الفواتير والمطالبات (InvoicesHistoryView)
-// ============================================================================
-function InvoicesHistoryView({ invoices, settings, onPreview, onEdit, onDelete, onCreateNew }) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [companyFilter, setCompanyFilter] = useState('ALL');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter((inv) => {
-      if (companyFilter !== 'ALL' && inv.company !== companyFilter) return false;
-      if (dateFrom && (inv.claimDate || '') < dateFrom) return false;
-      if (dateTo && (inv.claimDate || '') > dateTo) return false;
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.trim().toLowerCase();
-        const matchName = (inv.patientName || '').toLowerCase().includes(q);
-        const matchCard = (inv.cardNumber || '').toLowerCase().includes(q);
-        const matchInvNum = (inv.invoiceNumber || '').toLowerCase().includes(q);
-        const matchTicket = (inv.ticketNumber || '').toLowerCase().includes(q);
-        if (!matchName && !matchCard && !matchInvNum && !matchTicket) return false;
-      }
-      return true;
-    });
-  }, [invoices, searchQuery, companyFilter, dateFrom, dateTo]);
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <h2 className="text-xl font-black text-slate-900">سجل الفواتير والمطالبات السحابي</h2>
-            <p className="text-xs text-slate-500 mt-1">
-              بحث فوري وتصفية ومراجعة وتعديل وطباعة كافة الفواتير المسجلة لصيدلية الجبلي.
-            </p>
-          </div>
-          <button
-            onClick={onCreateNew}
-            className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold flex items-center gap-2 shadow-md"
-          >
-            <Plus className="w-4 h-4" />
-            <span>فاتورة جديدة</span>
-          </button>
-        </div>
-
-        {/* شريط البحث والتصفية */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-          <div className="md:col-span-5 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ابحث باسم المريض، رقم الكارنيه، رقم الفاتورة، أو رقم التذكرة..."
-              className="w-full pr-10 pl-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-600 outline-none text-xs"
-            />
-          </div>
-
-          <div className="md:col-span-3">
-            <select
-              value={companyFilter}
-              onChange={(e) => setCompanyFilter(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-600 outline-none text-xs font-bold bg-white"
-            >
-              <option value="ALL">جميع شركات التأمين</option>
-              <option value="AXA">AXA (أكسا)</option>
-              <option value="MetLife">MetLife (ميتلايف)</option>
-              <option value="MedRight">MedRight (ميدرايت)</option>
-            </select>
-          </div>
-
-          <div className="md:col-span-2">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              title="من تاريخ"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              title="إلى تاريخ"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* جدول الفواتير */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-        {filteredInvoices.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-xs">
-            لا توجد فواتير مطابقة لمعايير البحث الحالية.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600">
-                  <th className="py-3.5 px-4 font-bold">رقم الفاتورة</th>
-                  <th className="py-3.5 px-4 font-bold">الشركة</th>
-                  <th className="py-3.5 px-4 font-bold">اسم المريض</th>
-                  <th className="py-3.5 px-4 font-bold">رقم الكارنيه</th>
-                  <th className="py-3.5 px-4 font-bold">رقم التذكرة</th>
-                  <th className="py-3.5 px-4 font-bold">التاريخ</th>
-                  <th className="py-3.5 px-4 font-bold">الإجمالي</th>
-                  <th className="py-3.5 px-4 font-bold">خصم</th>
-                  <th className="py-3.5 px-4 font-bold">تحمل المريض</th>
-                  <th className="py-3.5 px-4 font-bold">المطلوب من الشركة</th>
-                  <th className="py-3.5 px-4 font-bold text-center">الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredInvoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50/90 transition">
-                    <td className="py-3.5 px-4 font-extrabold text-emerald-800">{inv.invoiceNumber}</td>
-                    <td className="py-3.5 px-4"><CompanyBadge company={inv.company} /></td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900">{inv.patientName}</td>
-                    <td className="py-3.5 px-4 font-mono">{inv.cardNumber}</td>
-                    <td className="py-3.5 px-4 font-mono text-slate-500">{inv.ticketNumber || '—'}</td>
-                    <td className="py-3.5 px-4 text-slate-600">{inv.claimDate}</td>
-                    <td className="py-3.5 px-4 font-bold">{formatCurrency(inv.totalDrugsAmount)}</td>
-                    <td className="py-3.5 px-4 text-rose-600 font-semibold">{formatCurrency(inv.discountAmount)}</td>
-                    <td className="py-3.5 px-4 text-amber-700 font-semibold">{formatCurrency(inv.patientShareAmount)}</td>
-                    <td className="py-3.5 px-4 font-black text-emerald-700">{formatCurrency(inv.companyDueAmount)}</td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => onPreview(inv)}
-                          title="عرض وطباعة / PDF"
-                          className="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
-                        >
-                          <Printer className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onEdit(inv)}
-                          title="تعديل الفاتورة"
-                          className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onDelete(inv)}
-                          title="حذف الفاتورة"
-                          className="p-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// سابعًا: التقارير الشهرية لكل شركة (MonthlyReportsView)
-// ============================================================================
-function MonthlyReportsView({ invoices, settings, onPreviewInvoice, onEditInvoice }) {
-  const [selectedCompany, setSelectedCompany] = useState('AXA');
-  const [selectedMonth, setSelectedMonth] = useState(getTodayISO().slice(0, 7)); // YYYY-MM
-  const [patientFilter, setPatientFilter] = useState('');
-
-  const reportInvoices = useMemo(() => {
-    return invoices.filter((inv) => {
-      if (inv.company !== selectedCompany) return false;
-      if (selectedMonth && !(inv.claimDate || '').startsWith(selectedMonth)) return false;
-      if (patientFilter.trim()) {
-        const q = patientFilter.trim().toLowerCase();
-        if (!(inv.patientName || '').toLowerCase().includes(q) && !(inv.cardNumber || '').toLowerCase().includes(q)) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [invoices, selectedCompany, selectedMonth, patientFilter]);
-
-  const totals = useMemo(() => {
-    return reportInvoices.reduce(
-      (acc, inv) => {
-        acc.count += 1;
-        acc.drugs += Number(inv.totalDrugsAmount) || 0;
-        acc.discount += Number(inv.discountAmount) || 0;
-        acc.patientShare += Number(inv.patientShareAmount) || 0;
-        acc.companyDue += Number(inv.companyDueAmount) || 0;
-        acc.profit += Number(inv.netProfit) || 0;
-        return acc;
-      },
-      { count: 0, drugs: 0, discount: 0, patientShare: 0, companyDue: 0, profit: 0 }
-    );
-  }, [reportInvoices]);
-
-  // تصدير التقرير الشهري إلى ملف CSV / Excel
-  const exportToCSV = () => {
-    const headers = [
-      'رقم الفاتورة',
-      'الشركة',
-      'اسم المريض',
-      'رقم الكارنيه',
-      'رقم التذكرة',
-      'رقم الموافقة',
-      'تاريخ المطالبة',
-      'إجمالي الأدوية',
-      'خصم',
-      'تحمل المريض',
-      'المطلوب من الشركة',
-      'صافي الربح'
-    ];
-    const rows = reportInvoices.map((inv) => [
-      inv.invoiceNumber,
-      inv.company,
-      `"${inv.patientName}"`,
-      `"${inv.cardNumber}"`,
-      `"${inv.ticketNumber || ''}"`,
-      `"${inv.approvalNumber || ''}"`,
-      inv.claimDate,
-      inv.totalDrugsAmount,
-      inv.discountAmount,
-      inv.patientShareAmount,
-      inv.companyDueAmount,
-      inv.netProfit
-    ]);
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `تقرير_${selectedCompany}_${selectedMonth}_${settings.pharmacyName}.csv`;
-    link.click();
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* اختيار الشركة والشهر */}
-      <div className="no-print bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-black text-slate-900">التقارير الشهرية ومطالبات شركات التأمين</h2>
-            <p className="text-xs text-slate-500 mt-1">
-              جميع الأرقام ناتجة تلقائيًا من الفواتير الفعلية المحفوظة، مع إمكانية فتح وتعديل أي فاتورة داخل التقرير.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={exportToCSV}
-              className="px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-2"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>تصدير Excel (CSV)</span>
-            </button>
-            <button
-              onClick={() => window.print()}
-              className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-2"
-            >
-              <Printer className="w-4 h-4" />
-              <span>طباعة التقرير / PDF</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-          <div className="md:col-span-6 grid grid-cols-3 gap-2">
-            {COMPANIES.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setSelectedCompany(c.id)}
-                className={`py-3 px-4 rounded-xl text-xs font-extrabold border transition ${
-                  selectedCompany === c.id
-                    ? 'bg-emerald-800 text-white border-emerald-800 shadow-md'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                {c.id}
-              </button>
-            ))}
-          </div>
-
-          <div className="md:col-span-3">
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">الشهر والسنة</label>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold"
-            />
-          </div>
-
-          <div className="md:col-span-3">
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">بحث داخل التقرير</label>
-            <input
-              type="text"
-              value={patientFilter}
-              onChange={(e) => setPatientFilter(e.target.value)}
-              placeholder="اسم المريض أو الكارنيه..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* منطقة التقرير القابلة للطباعة */}
-      <div id="printable-area" className="space-y-6">
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-5">
-            <div>
-              <h3 className="text-lg font-black text-slate-900">
-                تقرير المطالبات الشهري — شركة {selectedCompany}
-              </h3>
-              <p className="text-xs text-slate-500">
-                {settings.pharmacyName} | الفترة: {selectedMonth}
-              </p>
-            </div>
-            <CompanyBadge company={selectedCompany} />
-          </div>
-
-          {/* ملخص إجماليات التقرير بالمسميات المعتمدة */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-              <div className="text-[11px] text-slate-500 font-bold">عدد الفواتير</div>
-              <div className="text-lg font-black text-slate-900 mt-1">{totals.count}</div>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-              <div className="text-[11px] text-slate-500 font-bold">إجمالي قيمة الأدوية</div>
-              <div className="text-lg font-black text-slate-900 mt-1">{formatCurrency(totals.drugs)}</div>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-200">
-              <div className="text-[11px] text-rose-700 font-bold">خصم</div>
-              <div className="text-lg font-black text-rose-800 mt-1">{formatCurrency(totals.discount)}</div>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200">
-              <div className="text-[11px] text-amber-800 font-bold">تحمل المرضى</div>
-              <div className="text-lg font-black text-amber-900 mt-1">{formatCurrency(totals.patientShare)}</div>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300">
-              <div className="text-[11px] text-emerald-800 font-bold">المطلوب من الشركة</div>
-              <div className="text-lg font-black text-emerald-900 mt-1">{formatCurrency(totals.companyDue)}</div>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200">
-              <div className="text-[11px] text-indigo-800 font-bold">صافي الربح</div>
-              <div className="text-lg font-black text-indigo-900 mt-1">{formatCurrency(totals.profit)}</div>
-            </div>
-          </div>
-
-          {/* جدول الفواتير التفصيلية المكونة للتقرير */}
-          {reportInvoices.length === 0 ? (
-            <div className="py-10 text-center text-xs text-slate-500">
-              لا توجد مطالبات مسجلة لشركة {selectedCompany} خلال شهر {selectedMonth}.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-xs">
-                <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700">
-                    <th className="py-3 px-3 font-bold">رقم الفاتورة</th>
-                    <th className="py-3 px-3 font-bold">اسم المريض</th>
-                    <th className="py-3 px-3 font-bold">رقم الكارنيه</th>
-                    {selectedCompany === 'MedRight' && <th className="py-3 px-3 font-bold">التذكرة / الموافقة</th>}
-                    <th className="py-3 px-3 font-bold">التاريخ</th>
-                    <th className="py-3 px-3 font-bold">الأدوية</th>
-                    <th className="py-3 px-3 font-bold">خصم</th>
-                    <th className="py-3 px-3 font-bold">تحمل المريض</th>
-                    <th className="py-3 px-3 font-bold">المطلوب من الشركة</th>
-                    <th className="no-print py-3 px-3 font-bold text-center">مراجعة</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {reportInvoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-3 font-extrabold text-emerald-800">{inv.invoiceNumber}</td>
-                      <td className="py-3 px-3 font-bold">{inv.patientName}</td>
-                      <td className="py-3 px-3 font-mono">{inv.cardNumber}</td>
-                      {selectedCompany === 'MedRight' && (
-                        <td className="py-3 px-3 font-mono text-[11px]">
-                          {inv.ticketNumber || '-'} / {inv.approvalNumber || '-'}
-                        </td>
-                      )}
-                      <td className="py-3 px-3">{inv.claimDate}</td>
-                      <td className="py-3 px-3 font-semibold">{formatCurrency(inv.totalDrugsAmount)}</td>
-                      <td className="py-3 px-3 text-rose-700">{formatCurrency(inv.discountAmount)}</td>
-                      <td className="py-3 px-3 text-amber-800">{formatCurrency(inv.patientShareAmount)}</td>
-                      <td className="py-3 px-3 font-black text-emerald-800">{formatCurrency(inv.companyDueAmount)}</td>
-                      <td className="no-print py-3 px-3">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => onPreviewInvoice(inv)}
-                            className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                            title="عرض وطباعة"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => onEditInvoice(inv)}
-                            className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100"
-                            title="تعديل"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// ثامنًا: صفحة الإعدادات والنسخ الاحتياطي (SettingsView)
-// ============================================================================
-function SettingsView({ user, settings, invoices, monthlyPlans, showToast }) {
-  const [form, setForm] = useState(settings);
-  const [saving, setSaving] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [changingPass, setChangingPass] = useState(false);
-
-  useEffect(() => {
-    setForm(settings);
-  }, [settings]);
-
-  const handleSaveSettings = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'pharmacyConfig'), form, { merge: true });
-      showToast('تم حفظ إعدادات صيدلية الجبلي ومزامنتها على جميع الأجهزة');
-    } catch (err) {
-      showToast('فشل حفظ الإعدادات: ' + err.message, 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleLogoUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setForm({ ...form, logoUrl: reader.result });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handlePasswordChange = async (e) => {
-    e.preventDefault();
-    if (newPassword.length < 6) {
-      showToast('كلمة المرور الجديدة يجب أن لا تقل عن 6 أحرف.', 'error');
-      return;
-    }
-    setChangingPass(true);
-    try {
-      await updatePassword(auth.currentUser, newPassword);
-      setNewPassword('');
-      showToast('تم تغيير كلمة المرور بنجاح');
-    } catch (err) {
-      showToast('يتطلب تغيير كلمة المرور تسجيل دخول حديث. يرجى تسجيل الخروج والدخول مجددًا ثم المحاولة.', 'error');
-    } finally {
-      setChangingPass(false);
-    }
-  };
-
-  // تصدير نسخة احتياطية كاملة JSON
-  const handleExportBackup = () => {
-    const backup = {
-      exportedAt: new Date().toISOString(),
-      pharmacy: form.pharmacyName,
-      settings: form,
-      invoices,
-      monthlyPlans
-    };
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ElGabaly_Backup_${getTodayISO()}.json`;
-    a.click();
-    showToast('تم تنزيل النسخة الاحتياطية السحابية بنجاح');
-  };
-
-  return (
-    <div className="space-y-6 max-w-5xl">
-      <form onSubmit={handleSaveSettings} className="space-y-6">
-        {/* بيانات الصيدلية القانونية والطباعة */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
-          <h2 className="text-lg font-black text-slate-900">إعدادات صيدلية الجبلي والطباعة</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">اسم الصيدلية</label>
-              <input
-                type="text"
-                value={form.pharmacyName}
-                onChange={(e) => setForm({ ...form, pharmacyName: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">الوصف الفرعي بالترويسة</label>
-              <input
-                type="text"
-                value={form.pharmacySubtitle}
-                onChange={(e) => setForm({ ...form, pharmacySubtitle: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">عنوان الصيدلية</label>
-              <input
-                type="text"
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">أرقام الهاتف</label>
-              <input
-                type="text"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">السجل التجاري</label>
-              <input
-                type="text"
-                value={form.commercialReg}
-                onChange={(e) => setForm({ ...form, commercialReg: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">البطاقة الضريبية</label>
-              <input
-                type="text"
-                value={form.taxCard}
-                onChange={(e) => setForm({ ...form, taxCard: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1">نص تذييل الفاتورة المطبوعة</label>
-              <input
-                type="text"
-                value={form.footerNote}
-                onChange={(e) => setForm({ ...form, footerNote: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">شعار الصيدلية (Logo)</label>
-              <input type="file" accept="image/*" onChange={handleLogoUpload} className="text-xs" />
-            </div>
-          </div>
-        </div>
-
-        {/* إعدادات الحسابات المالية الافتراضية */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
-          <h3 className="text-base font-black text-slate-900">إعدادات المعادلات المالية الافتراضية</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">نسبة الخصم الافتراضية (%)</label>
-              <input
-                type="number"
-                step="0.5"
-                value={form.defaultDiscountRate}
-                onChange={(e) => setForm({ ...form, defaultDiscountRate: Number(e.target.value) })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">نسبة تحمل المريض الافتراضية (%)</label>
-              <input
-                type="number"
-                step="0.5"
-                value={form.defaultCopayRate}
-                onChange={(e) => setForm({ ...form, defaultCopayRate: Number(e.target.value) })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">هامش الربح التقديري قبل الخصم (%)</label>
-              <input
-                type="number"
-                step="0.5"
-                value={form.profitMarginRate}
-                onChange={(e) => setForm({ ...form, profitMarginRate: Number(e.target.value) })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold"
-              />
-            </div>
-          </div>
-          <label className="flex items-center gap-2.5 text-xs font-bold text-slate-700 cursor-pointer pt-2">
-            <input
-              type="checkbox"
-              checked={!!form.showProfitOnPrint}
-              onChange={(e) => setForm({ ...form, showProfitOnPrint: e.target.checked })}
-              className="w-4 h-4 rounded text-emerald-700"
-            />
-            <span>إظهار خانة «صافي الربح» في نسخة الفاتورة المطبوعة</span>
-          </label>
-        </div>
-
-        {/* إعدادات API */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
-          <h3 className="text-base font-black text-slate-900">إعدادات تكامل الذكاء الاصطناعي والـ API</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">API Key مخصص (اختياري)</label>
-              <input
-                type="password"
-                dir="ltr"
-                placeholder="يُستخدم المفتاح السحابي المدمج تلقائيًا عند تركه فارغًا"
-                value={form.customApiKey || ''}
-                onChange={(e) => setForm({ ...form, customApiKey: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-left font-mono"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">API Endpoint</label>
-              <input
-                type="text"
-                dir="ltr"
-                value={form.customApiEndpoint || ''}
-                onChange={(e) => setForm({ ...form, customApiEndpoint: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-left font-mono"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-7 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold shadow-lg flex items-center gap-2"
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>حفظ الإعدادات ومزامنتها</span>
-          </button>
-        </div>
-      </form>
-
-      {/* الأمان وتغيير كلمة المرور والنسخ الاحتياطي */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <form onSubmit={handlePasswordChange} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
-          <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-            <KeyRound className="w-4 h-4 text-emerald-700" />
-            <span>تغيير كلمة مرور الحساب</span>
-          </h3>
-          <input
-            type="password"
-            dir="ltr"
-            placeholder="أدخل كلمة المرور الجديدة (6 أحرف على الأقل)"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-left"
-          />
-          <button
-            type="submit"
-            disabled={changingPass}
-            className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold"
-          >
-            تحديث كلمة المرور
-          </button>
-        </form>
-
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-          <div>
-            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-              <Database className="w-4 h-4 text-emerald-700" />
-              <span>النسخ الاحتياطي للبيانات</span>
-            </h3>
-            <p className="text-xs text-slate-500 mt-1">
-              تنزيل نسخة احتياطية كاملة بصيغة JSON تشمل كافة الفواتير وخطط العلاج الشهري والإعدادات.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleExportBackup}
-            className="mt-4 px-5 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-extrabold flex items-center justify-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            <span>تنزيل نسخة احتياطية الآن</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// تاسعًا: قالب الطباعة الاحترافي A4 (InvoicePrintModal)
-// ============================================================================
-function InvoicePrintModal({ invoice, settings, onClose, onEdit }) {
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 md:p-6 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden my-auto">
-        {/* شريط التحكم العلوي (يختفي عند الطباعة) */}
-        <div className="no-print bg-slate-900 text-white px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Receipt className="w-5 h-5 text-amber-400" />
-            <span className="font-extrabold text-sm">معاينة الفاتورة الجاهزة للطباعة A4 ({invoice.invoiceNumber})</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onEdit}
-              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>تعديل</span>
-            </button>
-            <button
-              onClick={() => window.print()}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-lg"
-            >
-              <Printer className="w-4 h-4" />
-              <span>طباعة مباشرة / حفظ PDF</span>
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-xl bg-white/10 hover:bg-rose-600 text-white"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* محتوى الفاتورة الرسمي القابل للطباعة بحجم A4 */}
-        <div id="printable-area" className="p-8 bg-white text-slate-900 space-y-6">
-          {/* ترويسة الصيدلية */}
-          <div className="flex items-start justify-between border-b-2 border-emerald-800 pb-5">
-            <div className="flex items-center gap-4">
-              {settings.logoUrl ? (
-                <img src={settings.logoUrl} alt="Logo" className="w-16 h-16 rounded-2xl object-cover border border-slate-200" />
-              ) : (
-                <div className="w-16 h-16 rounded-2xl bg-emerald-900 text-amber-400 flex items-center justify-center">
-                  <HeartPulse className="w-9 h-9" />
-                </div>
-              )}
-              <div>
-                <h1 className="text-2xl font-black text-emerald-950">{settings.pharmacyName || 'صيدلية الجبلي'}</h1>
-                <p className="text-xs font-bold text-emerald-700">{settings.pharmacySubtitle}</p>
-                <p className="text-[11px] text-slate-600 mt-1">{settings.address}</p>
-                <p className="text-[11px] text-slate-600">هاتف: {settings.phone}</p>
-              </div>
-            </div>
-
-            <div className="text-left text-xs space-y-1">
-              <div className="inline-block px-3 py-1 rounded-lg bg-emerald-900 text-white font-extrabold text-sm">
-                فاتورة مطالبة تأمينية
-              </div>
-              <div className="font-mono font-bold text-slate-800 pt-1">رقم الفاتورة: {invoice.invoiceNumber}</div>
-              <div className="text-slate-600">تاريخ المطالبة: <span className="font-bold">{invoice.claimDate}</span></div>
-              <div className="text-[11px] text-slate-500">س.ت: {settings.commercialReg} | ب.ض: {settings.taxCard}</div>
-            </div>
-          </div>
-
-          {/* بيانات شركة التأمين والمريض */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
-            <div>
-              <span className="text-slate-500 block text-[11px]">شركة التأمين:</span>
-              <span className="font-black text-emerald-900 text-sm">{invoice.company}</span>
-            </div>
-            <div>
-              <span className="text-slate-500 block text-[11px]">اسم المريض:</span>
-              <span className="font-extrabold text-slate-900">{invoice.patientName}</span>
-            </div>
-            <div>
-              <span className="text-slate-500 block text-[11px]">رقم الكارنيه:</span>
-              <span className="font-mono font-extrabold text-slate-900">{invoice.cardNumber}</span>
-            </div>
-
-            {invoice.company === 'MedRight' && (
-              <>
-                <div>
-                  <span className="text-slate-500 block text-[11px]">رقم التذكرة:</span>
-                  <span className="font-mono font-bold text-slate-900">{invoice.ticketNumber || '—'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[11px]">رقم الموافقة:</span>
-                  <span className="font-mono font-bold text-slate-900">{invoice.approvalNumber || '—'}</span>
-                </div>
-              </>
-            )}
-
-            <div>
-              <span className="text-slate-500 block text-[11px]">رقم الهاتف:</span>
-              <span className="font-mono text-slate-800">{invoice.phone || '—'}</span>
-            </div>
-            <div>
-              <span className="text-slate-500 block text-[11px]">الرقم القومي:</span>
-              <span className="font-mono text-slate-800">{invoice.nationalId || '—'}</span>
-            </div>
-          </div>
-
-          {/* جدول الأدوية */}
-          <div>
-            <table className="w-full text-right text-xs border-collapse border border-slate-300">
-              <thead>
-                <tr className="bg-emerald-900 text-white">
-                  <th className="py-2.5 px-3 border border-emerald-800 w-10 text-center">#</th>
-                  <th className="py-2.5 px-3 border border-emerald-800">اسم الدواء والتركيز</th>
-                  <th className="py-2.5 px-3 border border-emerald-800 text-center w-24">عدد العلب</th>
-                  <th className="py-2.5 px-3 border border-emerald-800 text-center w-24">عدد الأشرطة</th>
-                  <th className="py-2.5 px-3 border border-emerald-800 text-center w-28">سعر الوحدة</th>
-                  <th className="py-2.5 px-3 border border-emerald-800 text-center w-28">الإجمالي (ج.م)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(invoice.medications || []).map((med, idx) => (
-                  <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                    <td className="py-2 px-3 border border-slate-300 text-center font-bold">{idx + 1}</td>
-                    <td className="py-2 px-3 border border-slate-300 font-bold" dir="ltr">
-                      {med.name} {med.concentration ? `(${med.concentration})` : ''}
-                    </td>
-                    <td className="py-2 px-3 border border-slate-300 text-center font-bold">{med.boxes || 0}</td>
-                    <td className="py-2 px-3 border border-slate-300 text-center font-bold">{med.strips || 0}</td>
-                    <td className="py-2 px-3 border border-slate-300 text-center font-mono">{formatCurrency(med.unitPrice)}</td>
-                    <td className="py-2 px-3 border border-slate-300 text-center font-extrabold font-mono">{formatCurrency(med.rowTotal)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* الملخص المالي بالمسميات الدقيقة المطلوبة: "خصم" و "المطلوب من الشركة" */}
-          <div className="flex justify-end">
-            <div className="w-full sm:w-80 border border-slate-300 rounded-2xl overflow-hidden text-xs">
-              <div className="flex justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                <span className="font-bold text-slate-700">إجمالي قيمة الأدوية:</span>
-                <span className="font-extrabold font-mono">{formatCurrency(invoice.totalDrugsAmount)} ج.م</span>
-              </div>
-              <div className="flex justify-between px-4 py-2.5 bg-white border-b border-slate-200">
-                <span className="font-bold text-slate-700">خصم:</span>
-                <span className="font-bold text-rose-700 font-mono">{formatCurrency(invoice.discountAmount)} ج.م</span>
-              </div>
-              <div className="flex justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                <span className="font-bold text-slate-700">تحمل المريض:</span>
-                <span className="font-bold text-amber-800 font-mono">{formatCurrency(invoice.patientShareAmount)} ج.م</span>
-              </div>
-              <div className="flex justify-between px-4 py-3 bg-emerald-900 text-white">
-                <span className="font-extrabold">المطلوب من الشركة:</span>
-                <span className="font-black text-sm font-mono">{formatCurrency(invoice.companyDueAmount)} ج.م</span>
-              </div>
-              {settings.showProfitOnPrint && (
-                <div className="flex justify-between px-4 py-2 bg-slate-100 text-slate-600 border-t border-slate-200">
-                  <span className="font-bold">صافي الربح:</span>
-                  <span className="font-bold font-mono">{formatCurrency(invoice.netProfit)} ج.م</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* التذييل والتوقيع */}
-          <div className="pt-6 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
-            <div>{settings.footerNote}</div>
-            <div className="font-bold text-slate-700">ختم وتوقيع {settings.pharmacyName}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// نافذة تعديل فاتورة محفوظة (EditInvoiceModal)
-// ============================================================================
-function EditInvoiceModal({ user, invoice, settings, onClose, onUpdated, showToast }) {
-  const [patientName, setPatientName] = useState(invoice.patientName || '');
-  const [cardNumber, setCardNumber] = useState(invoice.cardNumber || '');
-  const [ticketNumber, setTicketNumber] = useState(invoice.ticketNumber || '');
-  const [approvalNumber, setApprovalNumber] = useState(invoice.approvalNumber || '');
-  const [phone, setPhone] = useState(invoice.phone || '');
-  const [nationalId, setNationalId] = useState(invoice.nationalId || '');
-  const [claimDate, setClaimDate] = useState(invoice.claimDate || getTodayISO());
-  const [medications, setMedications] = useState(invoice.medications || []);
-  const [discountAmount, setDiscountAmount] = useState(Number(invoice.discountAmount) || 0);
-  const [patientShareAmount, setPatientShareAmount] = useState(Number(invoice.patientShareAmount) || 0);
-  const [saving, setSaving] = useState(false);
-
-  const computed = useMemo(() => {
-    const items = medications.map((m) => {
-      const boxes = Number(m.boxes) || 0;
-      const strips = Number(m.strips) || 0;
-      const price = Number(m.unitPrice) || 0;
-      const effectiveQty = boxes > 0 ? boxes + strips / 3 : strips > 0 ? strips : 0;
-      const rowTotal = Math.round(effectiveQty * price * 100) / 100;
-      return { ...m, rowTotal };
-    });
-    const totalDrugsAmount = items.reduce((s, i) => s + i.rowTotal, 0);
-    const companyDueAmount = Math.max(0, Math.round((totalDrugsAmount - Number(discountAmount) - Number(patientShareAmount)) * 100) / 100);
-    const grossMargin = totalDrugsAmount * ((Number(settings.profitMarginRate) || 18) / 100);
-    const netProfit = Math.round((grossMargin - Number(discountAmount)) * 100) / 100;
-    return { items, totalDrugsAmount, companyDueAmount, netProfit };
-  }, [medications, discountAmount, patientShareAmount, settings.profitMarginRate]);
-
-  const handleSaveEdit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const updatedFields = {
-        patientName: patientName.trim(),
-        cardNumber: cardNumber.trim(),
-        ticketNumber: invoice.company === 'MedRight' ? ticketNumber.trim() : '',
-        approvalNumber: invoice.company === 'MedRight' ? approvalNumber.trim() : '',
-        phone: phone.trim(),
-        nationalId: nationalId.trim(),
-        claimDate,
-        medications: computed.items,
-        totalDrugsAmount: computed.totalDrugsAmount,
-        discountAmount: Number(discountAmount) || 0,
-        patientShareAmount: Number(patientShareAmount) || 0,
-        companyShareAmount: computed.companyDueAmount,
-        companyDueAmount: computed.companyDueAmount,
-        netProfit: computed.netProfit,
-        updatedAt: new Date().toISOString()
-      };
-
-      await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'invoices', invoice.id), updatedFields);
-      onUpdated({ ...invoice, ...updatedFields });
-    } catch (err) {
-      showToast('فشل تحديث الفاتورة: ' + err.message, 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="no-print fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <form onSubmit={handleSaveEdit} className="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl space-y-5 my-auto">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-          <h3 className="text-lg font-black text-slate-900">تعديل الفاتورة رقم {invoice.invoiceNumber} ({invoice.company})</h3>
-          <button type="button" onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          <div>
-            <label className="block font-bold mb-1">اسم المريض</label>
-            <input type="text" required value={patientName} onChange={(e) => setPatientName(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold" />
-          </div>
-          <div>
-            <label className="block font-bold mb-1">رقم الكارنيه</label>
-            <input type="text" required dir="ltr" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono text-left" />
-          </div>
-          <div>
-            <label className="block font-bold mb-1">التاريخ</label>
-            <input type="date" required value={claimDate} onChange={(e) => setClaimDate(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
-          </div>
-          {invoice.company === 'MedRight' && (
-            <>
-              <div>
-                <label className="block font-bold mb-1">رقم التذكرة</label>
-                <input type="text" dir="ltr" value={ticketNumber} onChange={(e) => setTicketNumber(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono text-left" />
-              </div>
-              <div>
-                <label className="block font-bold mb-1">رقم الموافقة</label>
-                <input type="text" dir="ltr" value={approvalNumber} onChange={(e) => setApprovalNumber(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono text-left" />
-              </div>
-            </>
-          )}
-          <div>
-            <label className="block font-bold mb-1">الهاتف</label>
-            <input type="text" dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono text-left" />
-          </div>
-        </div>
-
-        <div className="space-y-2 max-h-60 overflow-y-auto">
-          {computed.items.map((m, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2 items-center text-xs">
-              <input
-                type="text"
-                dir="ltr"
-                value={m.name}
-                onChange={(e) => {
-                  const copy = [...medications];
-                  copy[i] = { ...copy[i], name: e.target.value };
-                  setMedications(copy);
-                }}
-                className="col-span-5 px-2.5 py-2 rounded-lg border border-slate-200 text-left font-semibold"
-              />
-              <input
-                type="number"
-                value={m.boxes}
-                onChange={(e) => {
-                  const copy = [...medications];
-                  copy[i] = { ...copy[i], boxes: Number(e.target.value) };
-                  setMedications(copy);
-                }}
-                placeholder="علب"
-                className="col-span-2 px-2 py-2 rounded-lg border border-slate-200 text-center font-bold"
-              />
-              <input
-                type="number"
-                value={m.strips}
-                onChange={(e) => {
-                  const copy = [...medications];
-                  copy[i] = { ...copy[i], strips: Number(e.target.value) };
-                  setMedications(copy);
-                }}
-                placeholder="أشرطة"
-                className="col-span-2 px-2 py-2 rounded-lg border border-slate-200 text-center font-bold"
-              />
-              <input
-                type="number"
-                step="0.01"
-                value={m.unitPrice}
-                onChange={(e) => {
-                  const copy = [...medications];
-                  copy[i] = { ...copy[i], unitPrice: Number(e.target.value) };
-                  setMedications(copy);
-                }}
-                placeholder="السعر"
-                className="col-span-3 px-2 py-2 rounded-lg border border-slate-200 text-center font-mono"
-              />
-            </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
-          <div>
-            <label className="block font-bold mb-1">خصم (ج.م)</label>
-            <input type="number" step="0.01" value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-bold" />
-          </div>
-          <div>
-            <label className="block font-bold mb-1">تحمل المريض (ج.م)</label>
-            <input type="number" step="0.01" value={patientShareAmount} onChange={(e) => setPatientShareAmount(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-bold" />
-          </div>
-          <div>
-            <label className="block font-bold mb-1 text-emerald-800">المطلوب من الشركة</label>
-            <div className="px-3 py-2 rounded-xl bg-emerald-900 text-white font-black text-sm">
-              {formatCurrency(computed.companyDueAmount)} ج.م
-            </div>
-          </div>
-        </div>
+        <label className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow transition">
+          <Upload className="w-4 h-4" />
+          <span>{loadingOcr ? "جاري قراءة المستند بالذكاء الاصطناعي..." : "رفع مستند التأمين (PDF / JPG / PNG)"}</span>
+          <input type="file" accept=".pdf,image/jpeg,image/png" onChange={handleFileUpload} className="hidden" />
+        </label>
+      </div>
 
-        <div className="flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">
-            إلغاء
-          </button>
-          <button type="submit" disabled={saving} className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold">
-            {saving ? 'جاري الحفظ...' : 'حفظ التعديلات وتحديث التقارير'}
-          </button>
+      {ocrError && (
+        <div className="bg-rose-50 border border-rose-300 text-rose-800 p-4 rounded-xl flex items-center gap-2 text-sm font-bold">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <span>{ocrError}</span>
         </div>
-      </form>
-    </div>
-  );
-}
+      )}
+
+      {warnings.length > 0 && (
+        <div className="bg-amber-50 border border-amber-300 text-amber-900 p-4 rounded-xl text-sm">
+          <p className="font-bold flex items-center gap-2 mb-1">
+            <AlertTriangle className="w-5 h-5" />
