@@ -3,27 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نظام صيدلية الجبلي للتأمين الطبي v3.7</title>
+  <title>نظام صيدلية الجبلي للتأمين الطبي v3.6</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- مكتبة تحويل الـ PDF إلى صور داخل المتصفح -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
+    @media screen {
+      #printableInvoice {
+        display: none !important;
+      }
+    }
     @media print {
-      body * { visibility: hidden; }
-      #printableInvoice, #printableInvoice * { 
-        visibility: visible; 
+      html, body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
       }
-      #printableInvoice { 
+      .no-print {
+        display: none !important;
+      }
+      #printableInvoice {
         display: block !important;
-        position: absolute; 
-        left: 0; 
-        top: 0; 
-        width: 100%; 
-        padding: 20px; 
+        position: static !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 20px !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: #ffffff !important;
+        color: #000000 !important;
       }
-      .no-print { display: none !important; }
     }
   </style>
 </head>
@@ -35,7 +48,7 @@
       <div class="bg-blue-600 p-2 rounded-lg text-white"><i class="fa-solid fa-prescription-bottle-medical text-xl"></i></div>
       <div>
         <h1 class="font-bold text-base leading-tight">صيدلية الجبلي</h1>
-        <p class="text-xs text-slate-400">نظام التأمين الطبي v3.7</p>
+        <p class="text-xs text-slate-400">نظام التأمين الطبي v3.6</p>
       </div>
     </div>
 
@@ -79,7 +92,7 @@
 
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <p class="text-xs font-semibold text-slate-500">إجمالي مطالبة الشركات</p>
+          <p class="text-xs font-semibold text-slate-500">إجمالي المطلوب من الشركات</p>
           <h3 class="text-2xl font-bold text-blue-600 mt-1" id="dashTotalCompany">0.00 ج.م</h3>
         </div>
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
@@ -113,7 +126,7 @@
 
       <!-- القراءة الذكية بواسطة Gemini AI -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-        <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-blue-600"></i> القراءة الذكية الشاملة للروشتة (Gemini AI)</h3>
+        <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-blue-600"></i> القراءة الذكية للروشتة (Gemini AI)</h3>
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label class="block text-xs font-medium mb-1">شركة التأمين</label>
@@ -129,7 +142,6 @@
               <option value="gemini-3.6-flash" selected>gemini-3.6-flash</option>
               <option value="gemini-2.5-flash">gemini-2.5-flash</option>
               <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-              <option value="gemini-1.5-flash">gemini-1.5-flash</option>
             </select>
           </div>
           <div>
@@ -137,12 +149,12 @@
             <input type="password" id="apiKeyInput" placeholder="أدخل المفتاح هنا..." class="w-full border border-slate-300 rounded-lg p-2 text-sm">
           </div>
           <div>
-            <label class="block text-xs font-medium mb-1">ملف الروشتة (صورة/PDF متعدد الصفحات)</label>
+            <label class="block text-xs font-medium mb-1">ملف الروشتة (صورة/PDF)</label>
             <input type="file" id="pdfFileInput" accept="image/*,application/pdf" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
           </div>
           <div class="flex items-end">
             <button onclick="processPDFWithAI()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm flex items-center justify-center gap-2">
-              <span id="btnText"><i class="fa-solid fa-brain"></i> استخراج البيانات بالكامل</span>
+              <span id="btnText"><i class="fa-solid fa-brain"></i> استخراج البيانات</span>
             </button>
           </div>
         </div>
@@ -161,7 +173,7 @@
             <input type="text" id="ticketNo" required class="w-full border border-slate-300 rounded-lg p-2 text-sm">
           </div>
           <div>
-            <label class="block text-xs font-medium mb-1">رقم الكارنيه *</label>
+            <label class="block text-xs font-medium mb-1">رقم الكارنيه (Staff لـ MetLife) *</label>
             <input type="text" id="cardNo" required class="w-full border border-slate-300 rounded-lg p-2 text-sm">
           </div>
           <div>
@@ -186,18 +198,19 @@
           </div>
         </div>
 
-        <!-- جدول الأدوية المصروفة -->
+        <!-- جدول الأدوية -->
         <div class="border-t border-slate-200 pt-4">
           <div class="flex justify-between items-center mb-3">
-            <h3 class="font-bold text-sm text-slate-700">تفاصيل الأدوية المصروفة (Dispensed)</h3>
+            <h3 class="font-bold text-sm text-slate-700">تفاصيل الأدوية الموصوفة</h3>
             <button type="button" onclick="addMedicineRow()" class="bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold py-1.5 px-3 rounded-lg">+ إضافة دواء يدوي</button>
           </div>
           
           <table class="w-full text-xs text-right border-collapse border border-slate-200 mb-4">
             <thead>
               <tr class="bg-slate-50 text-slate-700">
-                <th class="p-2 border">اسم الدواء المصروف</th>
-                <th class="p-2 border w-24">الكمية المصروفة</th>
+                <th class="p-2 border">اسم الدواء</th>
+                <th class="p-2 border w-24">الكمية (علب)</th>
+                <th class="p-2 border w-28">تفاصيل (علب/أشرطة)</th>
                 <th class="p-2 border w-32">سعر الوحدة (ج.م)</th>
                 <th class="p-2 border w-32">الإجمالي (ج.م)</th>
                 <th class="p-2 border w-12 text-center">حذف</th>
@@ -206,26 +219,27 @@
             <tbody id="medicinesTableBody"></tbody>
           </table>
 
-          <!-- تفاصيل الحساب والمبالغ المالية المباشرة -->
+          <!-- تفاصيل الحساب والنسب -->
           <div class="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
             <div>
-              <label class="block font-medium mb-1">إجمالي مبلغ الأدوية (ج.م)</label>
+              <label class="block font-medium mb-1">إجمالي المبلغ</label>
               <input type="number" step="0.01" id="totalAmount" oninput="calculateInvoice()" class="w-full border rounded-lg p-2 font-bold">
             </div>
             <div>
-              <label class="block font-medium mb-1">مبلغ الخصم (ج.م)</label>
-              <input type="number" step="0.01" id="pharmacyDiscountValue" value="0.00" class="w-full border rounded-lg p-2">
+              <label class="block font-medium mb-1">تحمل المريض (%)</label>
+              <input type="number" step="0.01" id="patientCopayPercent" value="10" oninput="calculateInvoice()" class="w-full border rounded-lg p-2">
             </div>
             <div>
-              <label class="block font-medium mb-1">مبلغ تحمل المريض (ج.م)</label>
-              <input type="number" step="0.01" id="patientPaid" class="w-full border rounded-lg p-2 font-bold text-emerald-700">
+              <label class="block font-medium mb-1">خصم (%)</label>
+              <input type="number" step="0.01" id="pharmacyDiscountPercent" value="15" oninput="calculateInvoice()" class="w-full border rounded-lg p-2">
             </div>
             <div>
-              <label class="block font-medium mb-1">المبلغ المطلوب من الشركة (ج.م)</label>
-              <input type="number" step="0.01" id="companyPaid" class="w-full border rounded-lg p-2 font-bold text-blue-700">
+              <label class="block font-medium mb-1">تحمل المريض (ج.م)</label>
+              <input type="number" id="patientPaid" readonly class="w-full bg-slate-200 border rounded-lg p-2 font-bold">
             </div>
-            <div class="flex items-end">
-              <button type="button" onclick="calculateInvoice()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold p-2 rounded-lg">إعادة حساب التلقائي</button>
+            <div>
+              <label class="block font-medium mb-1">المطلوب من الشركة (ج.م)</label>
+              <input type="number" id="companyPaid" readonly class="w-full bg-slate-200 border rounded-lg p-2 font-bold text-blue-700">
             </div>
           </div>
         </div>
@@ -244,13 +258,7 @@
           <h2 class="text-2xl font-bold text-slate-800">سجل الفواتير المحفوظة</h2>
           <p class="text-sm text-slate-500">عرض، تعديل، حذف، أو إعادة طباعة أي فاتورة</p>
         </div>
-        <div class="flex items-center gap-3">
-          <input type="text" id="searchRecordInput" onkeyup="filterRecords()" placeholder="بحث باسم المريض، الشركة أو الكارنيه..." class="border border-slate-300 rounded-xl p-2 text-xs w-64">
-          <button onclick="clearSearchFilter()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-3 rounded-xl text-xs">عرض الكل</button>
-          <button onclick="exportRecordsToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-2">
-            <i class="fa-solid fa-file-excel"></i> تصدير السجل إلى Excel
-          </button>
-        </div>
+        <input type="text" id="searchRecordInput" onkeyup="filterRecords()" placeholder="بحث باسم المريض أو الكارنيه..." class="border border-slate-300 rounded-xl p-2 text-xs w-64">
       </div>
 
       <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -263,7 +271,7 @@
                 <th class="p-3">الشركة</th>
                 <th class="p-3">رقم التذكرة</th>
                 <th class="p-3">الإجمالي</th>
-                <th class="p-3">مطلب الشركة</th>
+                <th class="p-3">المطلوب من الشركة</th>
                 <th class="p-3">تحمل المريض</th>
                 <th class="p-3 text-center">إجراءات</th>
               </tr>
@@ -279,11 +287,8 @@
       <div class="flex justify-between items-center">
         <div>
           <h2 class="text-2xl font-bold text-slate-800">التقارير الشهرية لشركات التأمين</h2>
-          <p class="text-sm text-slate-500">اضغط على أي شركة للتصفية المباشرة لجميع فواتيرها</p>
+          <p class="text-sm text-slate-500">تجميع إجمالي المطلوب من كل شركة</p>
         </div>
-        <button onclick="exportReportsToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-2">
-          <i class="fa-solid fa-file-excel"></i> تصدير تقرير الشركات إلى Excel
-        </button>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="companyReportsGrid"></div>
@@ -304,11 +309,11 @@
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-medium mb-1">السجل التجاري (س.ت)</label>
+            <label class="block text-xs font-medium mb-1">السجل التجاري</label>
             <input type="text" id="settingCommReg" class="w-full border rounded-lg p-2 text-sm">
           </div>
           <div>
-            <label class="block text-xs font-medium mb-1">التسجيل الضريبي (ب.ض)</label>
+            <label class="block text-xs font-medium mb-1">التسجيل الضريبي</label>
             <input type="text" id="settingTaxReg" class="w-full border rounded-lg p-2 text-sm">
           </div>
         </div>
@@ -324,66 +329,51 @@
   </main>
 
   <!-- ورقة الطباعة المستقلة -->
-  <section id="printableInvoice" class="bg-white p-8 rounded-xl border border-slate-200 hidden">
+  <section id="printableInvoice" class="bg-white p-8">
     <div class="border-b-2 border-slate-800 pb-4 mb-4 flex justify-between items-start">
       <div>
         <h2 class="text-2xl font-bold text-slate-900" id="printPharmName">صيدلية الجبلي</h2>
-        <p class="text-xs text-slate-600 mt-1" id="printPharmAddress">شارع صلاح سالم - الباجور - المنوفية</p>
-        <p class="text-xs text-slate-700 font-semibold mt-1">
-          <span>س.ت: <strong id="printPharmCommReg">60961</strong></span> | 
-          <span>ب.ض: <strong id="printPharmTaxReg">611509792</strong></span>
-        </p>
+        <p class="text-xs text-slate-600" id="printPharmDetails">شارع صلاح سالم - الباجور - المنوفية</p>
+        <p class="text-xs text-slate-700 font-semibold mt-1" id="printPharmReg">سجل تجاري: 60961 | تسجيل ضريبي: 611509792</p>
         <p class="text-sm font-bold text-blue-800 mt-2" id="invCompany">الشركة: MetLife</p>
       </div>
-      <div class="text-xs text-left leading-relaxed">
+      <div class="text-xs text-left space-y-1">
         <p><strong>التاريخ:</strong> <span id="invDate">-</span></p>
         <p><strong>رقم التذكرة:</strong> <span id="invTicket">-</span></p>
-        <p id="invApprovalRow" class="text-purple-800 font-bold hidden"><strong>موافقة ميدرايت:</strong> <span id="invApprovalNo">-</span></p>
       </div>
     </div>
 
-    <!-- بيانات المريض -->
-    <div class="grid grid-cols-2 gap-3 text-xs mb-6 border p-4 rounded-lg bg-slate-50">
+    <div class="grid grid-cols-2 gap-3 text-sm mb-6 border border-slate-300 p-4 rounded-lg bg-slate-50">
       <p><strong>اسم المريض:</strong> <span id="invPatientName">-</span></p>
       <p><strong>رقم الكارنيه:</strong> <span id="invCardNo">-</span></p>
       <p><strong>الرقم القومي:</strong> <span id="invNationalId">-</span></p>
       <p><strong>الهاتف:</strong> <span id="invPhone">-</span></p>
+      <p id="invApprovalRow" class="col-span-2 text-purple-800 font-bold hidden"><strong>موافقة ميدرايت:</strong> <span id="invApprovalNo">-</span></p>
     </div>
 
-    <!-- جدول تفاصيل الأدوية المصروفة -->
-    <table class="w-full text-xs border-collapse border border-slate-300 mb-6">
+    <table class="w-full text-sm border-collapse border border-slate-400 mb-6">
       <thead>
-        <tr class="bg-slate-100 text-slate-800">
-          <th class="border p-2 text-center w-10">#</th>
-          <th class="border p-2 text-right">اسم الدواء المصروف</th>
-          <th class="border p-2 text-center w-20">الكمية</th>
-          <th class="border p-2 text-left w-28">سعر الوحدة</th>
-          <th class="border p-2 text-left w-28">الإجمالي</th>
+        <tr class="bg-slate-100">
+          <th class="border border-slate-400 p-2 text-right w-10">#</th>
+          <th class="border border-slate-400 p-2 text-right">اسم الدواء</th>
+          <th class="border border-slate-400 p-2 text-center w-28">الكمية</th>
+          <th class="border border-slate-400 p-2 text-left w-24">السعر</th>
+          <th class="border border-slate-400 p-2 text-left w-28">الإجمالي</th>
         </tr>
       </thead>
       <tbody id="invMedicinesTableBody"></tbody>
+      <tfoot>
+        <tr class="bg-slate-50 font-bold">
+          <td colspan="4" class="border border-slate-400 p-2 text-right">الإجمالي الكلي:</td>
+          <td id="invTotal" class="border border-slate-400 p-2 text-left">0.00 ج.م</td>
+        </tr>
+      </tfoot>
     </table>
 
-    <!-- تفاصيل المبالغ المباشرة -->
-    <div class="border-t border-slate-300 pt-4 space-y-2 text-xs">
-      <div class="flex justify-between items-center py-1 border-b">
-        <span class="font-bold text-slate-700">إجمالي الفاتورة:</span>
-        <span id="invTotal" class="font-bold text-sm">0.00 ج.م</span>
-      </div>
-      <div class="flex justify-between items-center py-1 border-b">
-        <span class="text-slate-600">خصم الصيدلية:</span>
-        <span id="invPharmacyDiscountVal" class="font-semibold text-slate-800">0.00 ج.م</span>
-      </div>
-      <div class="grid grid-cols-2 gap-3 text-center text-xs font-bold pt-2">
-        <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-lg text-emerald-800">
-          تحمل المريض: <br>
-          <span id="invPatientPaid" class="text-base font-extrabold">0.00</span> ج.م
-        </div>
-        <div class="bg-blue-50 border border-blue-200 p-3 rounded-lg text-blue-800">
-          مطلب الشركة: <br>
-          <span id="invCompanyPaid" class="text-base font-extrabold">0.00</span> ج.م
-        </div>
-      </div>
+    <div class="grid grid-cols-3 gap-2 text-center text-sm font-bold bg-slate-100 border border-slate-300 p-3 rounded-lg">
+      <div>خصم: <span id="invDiscount">0%</span></div>
+      <div>تحمل المريض: <span id="invPatientPaid">0.00</span> ج.م</div>
+      <div>المطلوب من الشركة: <span id="invCompanyPaid">0.00</span> ج.م</div>
     </div>
   </section>
 
@@ -446,13 +436,24 @@
       if(tabName === 'reports') renderReports();
     }
 
-    function addMedicineRow(name = '', qty = 1, price = 0) {
+    // تنسيق عرض الكمية (علب وأشرطة)
+    function formatQuantityLabel(boxes, strips) {
+      const b = parseInt(boxes) || 0;
+      const s = parseInt(strips) || 0;
+      let parts = [];
+      if (b > 0) parts.push(`${b} علبة`);
+      if (s > 0) parts.push(`${s} شريط`);
+      return parts.length > 0 ? parts.join(' و ') : '';
+    }
+
+    function addMedicineRow(name = '', qty = 1, price = 0, qtyNote = '') {
       const tbody = document.getElementById('medicinesTableBody');
       const tr = document.createElement('tr');
       tr.className = 'border-b hover:bg-slate-50';
       tr.innerHTML = `
-        <td class="p-1 border"><input type="text" class="med-name w-full p-1 border rounded" value="${name}" placeholder="اسم الدواء المصروف"></td>
-        <td class="p-1 border"><input type="number" class="med-qty w-full p-1 border rounded text-center" value="${qty}" min="1" oninput="updateRowTotal(this)"></td>
+        <td class="p-1 border"><input type="text" class="med-name w-full p-1 border rounded" value="${name}" placeholder="اسم الدواء"></td>
+        <td class="p-1 border"><input type="number" step="0.5" class="med-qty w-full p-1 border rounded text-center" value="${qty}" min="0" oninput="updateRowTotal(this)"></td>
+        <td class="p-1 border"><input type="text" class="med-qty-note w-full p-1 border rounded text-center text-blue-800 bg-blue-50/50" value="${qtyNote}" placeholder="مثال: 2 علبة و 3 شريط"></td>
         <td class="p-1 border"><input type="number" step="0.01" class="med-price w-full p-1 border rounded text-left" value="${price}" oninput="updateRowTotal(this)"></td>
         <td class="p-1 border"><input type="number" step="0.01" class="med-total w-full p-1 bg-slate-100 border rounded text-left font-bold" value="${(qty * price).toFixed(2)}" readonly></td>
         <td class="p-1 border text-center"><button type="button" onclick="removeRow(this)" class="text-red-600 font-bold">✕</button></td>
@@ -478,42 +479,32 @@
       let sum = 0;
       document.querySelectorAll('.med-total').forEach(input => sum += parseFloat(input.value) || 0);
       document.getElementById('totalAmount').value = sum > 0 ? sum.toFixed(2) : '';
+      calculateInvoice();
     }
 
     function calculateInvoice() {
       const total = parseFloat(document.getElementById('totalAmount').value) || 0;
-      const patientPaid = parseFloat(document.getElementById('patientPaid').value) || 0;
-      if (total > 0 && patientPaid > 0) {
-        document.getElementById('companyPaid').value = (total - patientPaid).toFixed(2);
-      }
+      const copayPct = parseFloat(document.getElementById('patientCopayPercent').value) || 0;
+      const patientPay = total * (copayPct / 100);
+      const companyPay = total - patientPay;
+
+      document.getElementById('patientPaid').value = patientPay.toFixed(2);
+      document.getElementById('companyPaid').value = companyPay.toFixed(2);
     }
 
-    // دالة تحويل جميع صفحات الـ PDF إلى مصفوفة صور Base64
-    async function convertPdfToImagesBase64(file) {
+    async function convertPdfToImageBase64(file) {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const imageParts = [];
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 2.0 });
 
-      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 2.0 });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
 
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
-        const base64Data = canvas.toDataURL('image/png').split(',')[1];
-        
-        imageParts.push({
-          inline_data: {
-            mime_type: 'image/png',
-            data: base64Data
-          }
-        });
-      }
-      return imageParts;
+      await page.render({ canvasContext: context, viewport: viewport }).promise;
+      return canvas.toDataURL('image/png').split(',')[1];
     }
 
     function fileToBase64(file) {
@@ -528,6 +519,7 @@
     async function processPDFWithAI() {
       const apiKey = document.getElementById('apiKeyInput').value || settings.apiKey;
       const selectedModel = document.getElementById('modelSelect').value || DEFAULT_GEMINI_MODEL;
+      const selectedCompany = document.getElementById('companySelect').value;
       const fileInput = document.getElementById('pdfFileInput');
       const btnText = document.getElementById('btnText');
 
@@ -540,74 +532,73 @@
         return;
       }
 
-      btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحليل وقراءة جميع الصفحات...';
+      btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحليل واستخراج البيانات...';
 
       try {
         const file = fileInput.files[0];
-        let parts = [];
+        let base64Data = '';
+        let mimeType = 'image/png';
+
+        if (file.type === 'application/pdf') {
+          base64Data = await convertPdfToImageBase64(file);
+        } else {
+          base64Data = await fileToBase64(file);
+          mimeType = file.type;
+        }
 
         const promptText = `
-          أنت مساعد صيدلي خبير ومحترف في معالجة فواتير التأمين الطبي.
-          قم بقراءة وفحص كل صفحات المستند المرفق بدقة شديدة واستخرج البيانات التالية:
-          
-          1. patientName: اسم المريض
-          2. ticketNo: رقم التذكرة أو المطالبة
-          3. cardNo: رقم الكارنيه
-          4. nationalId: الرقم القومي إن وجد
-          5. claimDate: تاريخ الروشتة/المستند بتنسيق YYYY-MM-DD
-          6. company: حدد إحدى الشركات التالية فقط بناءً على الشعار أو اسم الشركة: "MetLife" أو "MedRight" أو "AXA"
-          7. approvalNo: رقم الموافقة إن وجد (خاص بميدرايت)
-          8. isMonthly: true أو false (هل العملية علاج شهري أو مكرر)
-          9. medicines: مصفوفة تحتوي الأدوية المقبولة/المصروفة.
-             تنبيه هام جداً: اقرأ واستخرج الأدوية الموجودة في صف أو جدول الأدوية المصروفة (Dispensed / Approved) فقط.
-             تجاهل تماماً واترك أي دواء مرفوض (Rejected / Not Covered / Refused) ولا تدرجه نهائياً في المصفوفة!
-             لكل دواء مصروف هات: (name, qty, price).
-          10. patientPaid: المبلغ المالي المطلق لتحمل المريض بالجنيه (كـ رقم مباشر وليس نسبة).
-          11. pharmacyDiscount: مبلغ خصم الصيدلية إن وجد بالجنيه (كـ رقم مباشر وليس نسبة).
-          12. companyPaid: المبلغ المالي المطلوب والمستحق من شركة التأمين بالجنيه (كـ رقم مباشر وليس نسبة).
-          13. totalAmount: إجمالي مبلغ الأدوية المصروفة بالجنيه (كـ رقم مباشر).
+          أنت مساعد صيدلي خبير في قراءة روشتات ومطالبات شركات التأمين الطبي في مصر.
+          الشركة المختارة حالياً هي: ${selectedCompany}.
 
-          أرجع النتيجة بتنسيق JSON فقط دون أي نصوص أو markdown:
+          استخرج البيانات التالية بدقة والتزم بالقواعد الصارمة لكل شركة:
+          1. patientName: اسم المريض.
+          2. ticketNo: رقم التذكرة أو المطالبة (Claim / Ticket No).
+          3. cardNo: رقم الكارنيه.
+             - قاعدة صارمة لشركة MetLife (ميتلايف): يجب استخراج رقم الكارنيه حصراً من خانة (Staff) أو (Staff ID / Staff No)، وتجاهل رقم (Member) تماماً وعدم وضعه في cardNo.
+          4. nationalId: الرقم القومي إن وجد.
+          5. approvalNo: رقم الموافقة إن وجد (خاصة لميدرايت MedRight).
+          6. isMonthly: true أو false (هل هي علاج شهري).
+          7. medicines: مصفوفة تحتوي على كل دواء بالحقول التالية:
+             - name: اسم الدواء فقط نظيفاً بدون أي أرقام كمية أو شرطات تخص الكمية.
+             - boxes: عدد العلب (رقم صحيح).
+             - strips: عدد الأشرطة (رقم صحيح).
+             - qty: إجمالي عدد العلب (إذا كان هناك علب فقط ضع عدد العلب، وإذا لم يوجد علب ضع 1).
+             - price: سعر الوحدة للعلبة الواحدة.
+             - قاعدة صارمة لصيغة الكميات في MedRight والمستندات المشابهة: إذا ظهرت الكمية على هيئة رقمين بينهما شرطة مثل (2-3) أو (1-2):
+               * الرقم الموجود على شمال الشرطة (اليسار) = عدد العلب (boxes).
+               * الرقم الموجود على يمين الشرطة (اليمين) = عدد الأشرطة (strips).
+               * مثال: "2-3" تعني boxes: 2 و strips: 3.
+               * مثال: "1-2" تعني boxes: 1 و strips: 2.
+               * لا تدمج هذه الأرقام أو الشرطة في اسم الدواء (name) أبداً.
+
+          تنبيه هام: يجب أن تكون الإجابة عبارة عن نص JSON فقط بدون أي مقدمات أو مؤخرات أو علامات markdown.
+          مثال للـ JSON المطلوب:
           {
-            "patientName": "اسم المريض",
+            "patientName": "أحمد محمد",
             "ticketNo": "12345",
-            "cardNo": "67890",
+            "cardNo": "98765",
             "nationalId": "",
-            "claimDate": "2026-09-11",
-            "company": "MetLife",
             "approvalNo": "",
             "isMonthly": false,
             "medicines": [
-              {"name": "Panadol Extra", "qty": 2, "price": 25.0}
-            ],
-            "patientPaid": 10.0,
-            "pharmacyDiscount": 0.0,
-            "companyPaid": 40.0,
-            "totalAmount": 50.0
+              {"name": "Panadol Extra", "boxes": 2, "strips": 3, "qty": 2, "price": 20.0}
+            ]
           }
         `;
-
-        parts.push({ text: promptText });
-
-        if (file.type === 'application/pdf') {
-          const imageParts = await convertPdfToImagesBase64(file);
-          parts.push(...imageParts);
-        } else {
-          const base64Data = await fileToBase64(file);
-          parts.push({
-            inline_data: {
-              mime_type: file.type,
-              data: base64Data
-            }
-          });
-        }
 
         const apiUrl = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${selectedModel}:generateContent?key=${apiKey}`;
 
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts }] })
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: promptText },
+                { inline_data: { mime_type: mimeType, data: base64Data } }
+              ]
+            }]
+          })
         });
 
         const data = await response.json();
@@ -617,10 +608,11 @@
         }
 
         if (!data.candidates || !data.candidates[0]) {
-          throw new Error("لم يتم استخرج بيانات، تأكد من وضوح الصورة/المستند.");
+          throw new Error("لم يتم استخراج أي بيانات، تأكد من وضوح الروشتة.");
         }
 
         let textResult = data.candidates[0].content.parts[0].text;
+        
         const jsonMatch = textResult.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
           throw new Error("لم يتمكن النظام من قراءة تنسيق البيانات المرجعة.");
@@ -632,57 +624,43 @@
         if (parsed.ticketNo) document.getElementById('ticketNo').value = parsed.ticketNo;
         if (parsed.cardNo) document.getElementById('cardNo').value = parsed.cardNo;
         if (parsed.nationalId) document.getElementById('nationalId').value = parsed.nationalId;
-        if (parsed.claimDate) document.getElementById('claimDate').value = parsed.claimDate;
-        if (parsed.approvalNo) document.getElementById('approvalNo').value = parsed.approvalNo;
-
-        if (parsed.company) {
-          const compSelect = document.getElementById('companySelect');
-          const matchedOption = Array.from(compSelect.options).find(opt => 
-            opt.value.toLowerCase() === parsed.company.toLowerCase() || 
-            opt.text.toLowerCase().includes(parsed.company.toLowerCase())
-          );
-          if (matchedOption) {
-            compSelect.value = matchedOption.value;
-            toggleMedrightFields();
-          }
+        if (parsed.approvalNo && document.getElementById('approvalNo')) {
+          document.getElementById('approvalNo').value = parsed.approvalNo;
         }
-
         if (parsed.isMonthly !== undefined) document.getElementById('isMonthly').checked = parsed.isMonthly;
 
-        // تعبئة الأدوية المصروفة فقط
         document.getElementById('medicinesTableBody').innerHTML = '';
         if (parsed.medicines && Array.isArray(parsed.medicines) && parsed.medicines.length > 0) {
-          parsed.medicines.forEach(m => addMedicineRow(m.name || '', m.qty || 1, m.price || 0));
+          parsed.medicines.forEach(m => {
+            let cleanName = (m.name || '').trim();
+            let boxes = parseInt(m.boxes) || 0;
+            let strips = parseInt(m.strips) || 0;
+
+            // فحص إضافي في حال بقيت صيغة مثل 2-3 ملتصقة في نهاية اسم الدواء
+            const hyphenMatch = cleanName.match(/(?:^|\s)(\d+)\s*-\s*(\d+)(?:\s|$)/);
+            if (hyphenMatch && boxes === 0 && strips === 0) {
+              boxes = parseInt(hyphenMatch[1], 10);
+              strips = parseInt(hyphenMatch[2], 10);
+              cleanName = cleanName.replace(hyphenMatch[0], ' ').trim();
+            }
+
+            const qtyVal = boxes > 0 ? boxes : (parseFloat(m.qty) || 1);
+            const qtyNote = formatQuantityLabel(boxes, strips);
+
+            addMedicineRow(cleanName, qtyVal, m.price || 0, qtyNote);
+          });
         } else {
           addMedicineRow();
         }
 
-        // تعبئة المبالغ المالية الرقمية المباشرة من المستند
-        if (parsed.totalAmount !== undefined && parsed.totalAmount !== null) {
-          document.getElementById('totalAmount').value = parseFloat(parsed.totalAmount).toFixed(2);
-        } else {
-          recalculateOverallTotal();
-        }
-
-        if (parsed.patientPaid !== undefined && parsed.patientPaid !== null) {
-          document.getElementById('patientPaid').value = parseFloat(parsed.patientPaid).toFixed(2);
-        }
-
-        if (parsed.companyPaid !== undefined && parsed.companyPaid !== null) {
-          document.getElementById('companyPaid').value = parseFloat(parsed.companyPaid).toFixed(2);
-        }
-
-        if (parsed.pharmacyDiscount !== undefined && parsed.pharmacyDiscount !== null) {
-          document.getElementById('pharmacyDiscountValue').value = parseFloat(parsed.pharmacyDiscount).toFixed(2);
-        }
-
-        alert('تم قراءة المستند بالكامل بنجاح واستخراج الأدوية المصروفة والمبالغ المطلوبة!');
+        recalculateOverallTotal();
+        alert('تم استخراج البيانات وتعبئتها في الفاتورة بنجاح!');
 
       } catch (err) {
         console.error("AI Error:", err);
         alert('حدث خطأ أثناء قراءة البيانات: ' + err.message);
       } finally {
-        btnText.innerHTML = '<i class="fa-solid fa-brain"></i> استخراج البيانات بالكامل';
+        btnText.innerHTML = '<i class="fa-solid fa-brain"></i> استخراج البيانات بالذكاء الاصطناعي';
       }
     }
 
@@ -692,9 +670,10 @@
       document.querySelectorAll('#medicinesTableBody tr').forEach(row => {
         medicines.push({
           name: row.querySelector('.med-name').value,
-          qty: parseFloat(row.querySelector('.med-qty').value) || 1,
-          price: parseFloat(row.querySelector('.med-price').value) || 0,
-          total: parseFloat(row.querySelector('.med-total').value) || 0
+          qty: row.querySelector('.med-qty').value,
+          qtyNote: row.querySelector('.med-qty-note') ? row.querySelector('.med-qty-note').value : '',
+          price: row.querySelector('.med-price').value,
+          total: row.querySelector('.med-total').value
         });
       });
 
@@ -710,7 +689,8 @@
         approvalNo: document.getElementById('approvalNo').value,
         isMonthly: document.getElementById('isMonthly').checked,
         totalAmount: parseFloat(document.getElementById('totalAmount').value) || 0,
-        pharmacyDiscountValue: parseFloat(document.getElementById('pharmacyDiscountValue').value) || 0,
+        patientCopayPercent: parseFloat(document.getElementById('patientCopayPercent').value) || 0,
+        pharmacyDiscountPercent: parseFloat(document.getElementById('pharmacyDiscountPercent').value) || 0,
         patientPaid: parseFloat(document.getElementById('patientPaid').value) || 0,
         companyPaid: parseFloat(document.getElementById('companyPaid').value) || 0,
         medicines: medicines
@@ -735,7 +715,7 @@
       document.getElementById('claimForm').reset();
       document.getElementById('medicinesTableBody').innerHTML = '';
       document.getElementById('claimDate').valueAsDate = new Date();
-      document.getElementById('pharmacyDiscountValue').value = '0.00';
+      calculateInvoice();
     }
 
     function renderRecordsTable() {
@@ -749,241 +729,111 @@
           <td class="p-3 font-bold">${inv.patientName}</td>
           <td class="p-3"><span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-semibold">${inv.company}</span></td>
           <td class="p-3">${inv.ticketNo}</td>
-          <td class="p-3 font-bold">${(inv.totalAmount || 0).toFixed(2)} ج.م</td>
-          <td class="p-3 font-bold text-blue-700">${(inv.companyPaid || 0).toFixed(2)} ج.م</td>
-          <td class="p-3 font-bold text-emerald-700">${(inv.patientPaid || 0).toFixed(2)} ج.م</td>
+          <td class="p-3 font-bold">${inv.totalAmount.toFixed(2)} ج.م</td>
+          <td class="p-3 text-blue-700 font-bold">${inv.companyPaid.toFixed(2)} ج.م</td>
+          <td class="p-3 text-emerald-700 font-bold">${inv.patientPaid.toFixed(2)} ج.م</td>
           <td class="p-3 text-center space-x-1 space-x-reverse">
-            <button onclick="editRecord('${inv.id}')" class="p-1 text-blue-600 hover:bg-blue-50 rounded" title="تعديل"><i class="fa-solid fa-pen-to-square"></i></button>
-            <button onclick="printRecord('${inv.id}')" class="p-1 text-slate-600 hover:bg-slate-100 rounded" title="طباعة"><i class="fa-solid fa-print"></i></button>
-            <button onclick="deleteRecord('${inv.id}')" class="p-1 text-red-600 hover:bg-red-50 rounded" title="حذف"><i class="fa-solid fa-trash"></i></button>
+            <button onclick="editInvoice('${inv.id}')" class="text-blue-600 hover:text-blue-800 font-bold px-2"><i class="fa-solid fa-pen-to-square"></i> تعديل</button>
+            <button onclick="deleteInvoice('${inv.id}')" class="text-red-600 hover:text-red-800 font-bold px-2"><i class="fa-solid fa-trash"></i> حذف</button>
           </td>
         `;
         tbody.appendChild(tr);
       });
-      filterRecords();
     }
 
-    function filterRecords() {
-      const q = document.getElementById('searchRecordInput').value.toLowerCase();
-      const rows = document.querySelectorAll('#fullRecordsTableBody tr');
-      rows.forEach(row => {
-        const text = row.innerText.toLowerCase();
-        row.style.display = text.includes(q) ? '' : 'none';
-      });
-    }
-
-    function clearSearchFilter() {
-      document.getElementById('searchRecordInput').value = '';
-      filterRecords();
-    }
-
-    function filterRecordsByCompany(companyName) {
-      switchTab('records');
-      document.getElementById('searchRecordInput').value = companyName;
-      filterRecords();
-    }
-
-    function editRecord(id) {
+    function editInvoice(id) {
       const inv = invoices.find(i => i.id === id);
-      if (!inv) return;
+      if(!inv) return;
 
-      switchTab('newInvoice');
       document.getElementById('editingId').value = inv.id;
-      document.getElementById('formTitle').innerText = 'تعديل فاتورة تأمين';
-
-      document.getElementById('patientName').value = inv.patientName || '';
-      document.getElementById('ticketNo').value = inv.ticketNo || '';
-      document.getElementById('cardNo').value = inv.cardNo || '';
-      document.getElementById('nationalId').value = inv.nationalId || '';
-      document.getElementById('patientPhone').value = inv.patientPhone || '';
-      document.getElementById('claimDate').value = inv.claimDate || '';
-      document.getElementById('companySelect').value = inv.company || 'MetLife';
+      document.getElementById('formTitle').innerText = 'تعديل الفاتورة رقم: ' + inv.ticketNo;
+      document.getElementById('patientName').value = inv.patientName;
+      document.getElementById('ticketNo').value = inv.ticketNo;
+      document.getElementById('cardNo').value = inv.cardNo;
+      document.getElementById('nationalId').value = inv.nationalId;
+      document.getElementById('patientPhone').value = inv.patientPhone;
+      document.getElementById('claimDate').value = inv.claimDate;
+      document.getElementById('companySelect').value = inv.company;
       document.getElementById('approvalNo').value = inv.approvalNo || '';
-      document.getElementById('isMonthly').checked = !!inv.isMonthly;
+      document.getElementById('isMonthly').checked = inv.isMonthly;
+      document.getElementById('patientCopayPercent').value = inv.patientCopayPercent;
+      if (inv.pharmacyDiscountPercent !== undefined) {
+        document.getElementById('pharmacyDiscountPercent').value = inv.pharmacyDiscountPercent;
+      }
 
       toggleMedrightFields();
 
-      document.getElementById('medicinesTableBody').innerHTML = '';
-      if (inv.medicines && inv.medicines.length > 0) {
-        inv.medicines.forEach(m => addMedicineRow(m.name, m.qty, m.price));
-      } else {
-        addMedicineRow();
-      }
-
-      document.getElementById('totalAmount').value = (inv.totalAmount || 0).toFixed(2);
-      document.getElementById('pharmacyDiscountValue').value = (inv.pharmacyDiscountValue || 0).toFixed(2);
-      document.getElementById('patientPaid').value = (inv.patientPaid || 0).toFixed(2);
-      document.getElementById('companyPaid').value = (inv.companyPaid || 0).toFixed(2);
-    }
-
-    function deleteRecord(id) {
-      if (!confirm('هل أنت تأكد من رغبتك في حذف هذه الفاتورة؟')) return;
-      invoices = invoices.filter(i => i.id !== id);
-      localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
-      renderRecordsTable();
-      renderDashboard();
-    }
-
-    function printRecord(id) {
-      const inv = invoices.find(i => i.id === id);
-      if (!inv) return;
-      populatePrintableArea(inv);
-      window.print();
-    }
-
-    function printCurrentForm() {
-      const medicines = [];
-      document.querySelectorAll('#medicinesTableBody tr').forEach(row => {
-        medicines.push({
-          name: row.querySelector('.med-name').value,
-          qty: parseFloat(row.querySelector('.med-qty').value) || 1,
-          price: parseFloat(row.querySelector('.med-price').value) || 0,
-          total: parseFloat(row.querySelector('.med-total').value) || 0
-        });
-      });
-
-      const inv = {
-        patientName: document.getElementById('patientName').value || '-',
-        ticketNo: document.getElementById('ticketNo').value || '-',
-        cardNo: document.getElementById('cardNo').value || '-',
-        nationalId: document.getElementById('nationalId').value || '-',
-        patientPhone: document.getElementById('patientPhone').value || '-',
-        claimDate: document.getElementById('claimDate').value || '-',
-        company: document.getElementById('companySelect').value,
-        approvalNo: document.getElementById('approvalNo').value || '-',
-        totalAmount: parseFloat(document.getElementById('totalAmount').value) || 0,
-        pharmacyDiscountValue: parseFloat(document.getElementById('pharmacyDiscountValue').value) || 0,
-        patientPaid: parseFloat(document.getElementById('patientPaid').value) || 0,
-        companyPaid: parseFloat(document.getElementById('companyPaid').value) || 0,
-        medicines: medicines
-      };
-
-      populatePrintableArea(inv);
-      window.print();
-    }
-
-    function populatePrintableArea(inv) {
-      document.getElementById('printPharmName').innerText = settings.pharmacyName || 'صيدلية الجبلي';
-      document.getElementById('printPharmAddress').innerText = settings.address || 'شارع صلاح سالم - الباجور - المنوفية';
-      document.getElementById('printPharmCommReg').innerText = settings.commReg || '60961';
-      document.getElementById('printPharmTaxReg').innerText = settings.taxReg || '611509792';
-      
-      document.getElementById('invCompany').innerText = `الشركة: ${inv.company}`;
-      document.getElementById('invDate').innerText = inv.claimDate;
-      document.getElementById('invTicket').innerText = inv.ticketNo;
-      document.getElementById('invPatientName').innerText = inv.patientName;
-      document.getElementById('invCardNo').innerText = inv.cardNo;
-      document.getElementById('invNationalId').innerText = inv.nationalId || '-';
-      document.getElementById('invPhone').innerText = inv.patientPhone || '-';
-
-      const approvalRow = document.getElementById('invApprovalRow');
-      if (inv.company === 'MedRight') {
-        approvalRow.classList.remove('hidden');
-        document.getElementById('invApprovalNo').innerText = inv.approvalNo || '-';
-      } else {
-        approvalRow.classList.add('hidden');
-      }
-
-      const tbody = document.getElementById('invMedicinesTableBody');
+      const tbody = document.getElementById('medicinesTableBody');
       tbody.innerHTML = '';
-      if (inv.medicines && inv.medicines.length > 0) {
-        inv.medicines.forEach((m, idx) => {
-          const tr = document.createElement('tr');
-          const qty = parseFloat(m.qty) || 1;
-          const price = parseFloat(m.price) || 0;
-          const total = parseFloat(m.total) || (qty * price);
-          tr.innerHTML = `
-            <td class="border p-2 text-center">${idx + 1}</td>
-            <td class="border p-2 text-right font-medium">${m.name || '-'}</td>
-            <td class="border p-2 text-center font-bold">${qty}</td>
-            <td class="border p-2 text-left">${price.toFixed(2)} ج.م</td>
-            <td class="border p-2 text-left font-bold">${total.toFixed(2)} ج.م</td>
-          `;
-          tbody.appendChild(tr);
-        });
+      if(inv.medicines) {
+        inv.medicines.forEach(m => addMedicineRow(m.name, m.qty, m.price, m.qtyNote || ''));
       }
+      switchTab('newInvoice');
+    }
 
-      const totalAmount = inv.totalAmount || 0;
-      const discountVal = inv.pharmacyDiscountValue || 0;
+    function deleteInvoice(id) {
+      if(confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) {
+        invoices = invoices.filter(i => i.id !== id);
+        localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
+        renderRecordsTable();
+      }
+    }
 
-      document.getElementById('invTotal').innerText = `${totalAmount.toFixed(2)} ج.م`;
-      document.getElementById('invPharmacyDiscountVal').innerText = `${discountVal.toFixed(2)} ج.م`;
-      document.getElementById('invPatientPaid').innerText = (inv.patientPaid || 0).toFixed(2);
-      document.getElementById('invCompanyPaid').innerText = (inv.companyPaid || 0).toFixed(2);
+    function filterRecords() {
+      const query = document.getElementById('searchRecordInput').value.toLowerCase();
+      const rows = document.querySelectorAll('#fullRecordsTableBody tr');
+      rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(query) ? '' : 'none';
+      });
     }
 
     function renderDashboard() {
-      const totalCompany = invoices.reduce((sum, i) => sum + (i.companyPaid || 0), 0);
-      const totalPatient = invoices.reduce((sum, i) => sum + (i.patientPaid || 0), 0);
-      const count = invoices.length;
+      const totalCompany = invoices.reduce((acc, cur) => acc + (cur.companyPaid || 0), 0);
+      const totalPatient = invoices.reduce((acc, cur) => acc + (cur.patientPaid || 0), 0);
       const monthlyCount = invoices.filter(i => i.isMonthly).length;
 
-      document.getElementById('dashTotalCompany').innerText = `${totalCompany.toFixed(2)} ج.م`;
-      document.getElementById('dashTotalPatient').innerText = `${totalPatient.toFixed(2)} ج.م`;
-      document.getElementById('dashCount').innerText = count;
+      document.getElementById('dashTotalCompany').innerText = totalCompany.toFixed(2) + ' ج.م';
+      document.getElementById('dashTotalPatient').innerText = totalPatient.toFixed(2) + ' ج.م';
+      document.getElementById('dashCount').innerText = invoices.length;
       document.getElementById('dashMonthlyCount').innerText = monthlyCount;
 
-      renderChart();
-    }
-
-    function renderChart() {
-      const companyTotals = {};
+      const companyData = {};
       invoices.forEach(i => {
-        companyTotals[i.company] = (companyTotals[i.company] || 0) + (i.companyPaid || 0);
+        companyData[i.company] = (companyData[i.company] || 0) + i.companyPaid;
       });
 
-      const labels = Object.keys(companyTotals);
-      const data = Object.values(companyTotals);
-
       const ctx = document.getElementById('companyChart').getContext('2d');
-      if (chartInstance) chartInstance.destroy();
-
+      if(chartInstance) chartInstance.destroy();
       chartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: labels.length ? labels : ['MetLife', 'MedRight', 'AXA'],
+          labels: Object.keys(companyData),
           datasets: [{
-            label: 'إجمالي مطالبات الشركة (ج.م)',
-            data: labels.length ? data : [0, 0, 0],
-            backgroundColor: ['#2563eb', '#9333ea', '#059669']
+            label: 'إجمالي المطلوب من الشركة (ج.م)',
+            data: Object.values(companyData),
+            backgroundColor: '#2563eb'
           }]
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true } }
-        }
+        options: { responsive: true, maintainAspectRatio: false }
       });
     }
 
     function renderReports() {
       const grid = document.getElementById('companyReportsGrid');
       grid.innerHTML = '';
-
       const companies = ['MetLife', 'MedRight', 'AXA'];
+
       companies.forEach(comp => {
         const compInvoices = invoices.filter(i => i.company === comp);
-        const totalComp = compInvoices.reduce((sum, i) => sum + (i.companyPaid || 0), 0);
-        const totalPat = compInvoices.reduce((sum, i) => sum + (i.patientPaid || 0), 0);
+        const total = compInvoices.reduce((acc, cur) => acc + cur.companyPaid, 0);
 
         const card = document.createElement('div');
-        card.className = 'bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3 cursor-pointer hover:border-blue-500 hover:shadow-md transition group';
-        card.onclick = () => filterRecordsByCompany(comp);
+        card.className = 'bg-white p-5 rounded-2xl shadow-sm border border-slate-200';
         card.innerHTML = `
-          <div class="flex justify-between items-center border-b pb-3">
-            <h3 class="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition">${comp}</h3>
-            <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-1 rounded-full">${compInvoices.length} فاتورة</span>
-          </div>
-          <div class="space-y-1 text-sm">
-            <div class="flex justify-between text-slate-600"><span>مطالبة الشركة:</span> <strong class="text-blue-600">${totalComp.toFixed(2)} ج.م</strong></div>
-            <div class="flex justify-between text-slate-600"><span>مدفوعات المرضى:</span> <strong class="text-emerald-600">${totalPat.toFixed(2)} ج.م</strong></div>
-            <div class="flex justify-between text-slate-600"><span>الإجمالي العام:</span> <strong>${(totalComp + totalPat).toFixed(2)} ج.م</strong></div>
-          </div>
-          <div class="text-xs text-blue-600 font-bold pt-2 flex items-center justify-between border-t border-slate-100">
-            <span>عرض كل فواتير ${comp}</span>
-            <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
-          </div>
+          <h3 class="font-bold text-lg border-b pb-2 mb-3 text-slate-800">${comp}</h3>
+          <p class="text-xs text-slate-500">عدد المطالبات: <span class="font-bold text-slate-800">${compInvoices.length}</span></p>
+          <p class="text-xs text-slate-500 mt-1">المطلوب من الشركة: <span class="font-bold text-blue-600 text-base">${total.toFixed(2)} ج.م</span></p>
         `;
         grid.appendChild(card);
       });
@@ -1001,72 +851,63 @@
       alert('تم حفظ الإعدادات بنجاح!');
     }
 
-    function downloadCSV(csvContent, fileName) {
-      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      
-      link.setAttribute('href', url);
-      link.setAttribute('download', fileName);
-      link.style.visibility = 'hidden';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    function prepareInvoiceForPrint() {
+      document.getElementById('printPharmName').innerText = settings.pharmacyName || 'صيدلية الجبلي';
+      document.getElementById('printPharmDetails').innerText = settings.address || '';
+      document.getElementById('printPharmReg').innerText = `سجل تجاري: ${settings.commReg || '60961'} | تسجيل ضريبي: ${settings.taxReg || '611509792'}`;
+      document.getElementById('invCompany').innerText = 'الشركة: ' + document.getElementById('companySelect').value;
+      document.getElementById('invDate').innerText = document.getElementById('claimDate').value || '-';
+      document.getElementById('invTicket').innerText = document.getElementById('ticketNo').value || '-';
+      document.getElementById('invPatientName').innerText = document.getElementById('patientName').value || '-';
+      document.getElementById('invCardNo').innerText = document.getElementById('cardNo').value || '-';
+      document.getElementById('invNationalId').innerText = document.getElementById('nationalId').value || '-';
+      document.getElementById('invPhone').innerText = document.getElementById('patientPhone').value || '-';
 
-    function exportRecordsToCSV() {
-      if (!invoices || invoices.length === 0) {
-        alert('لا توجد فواتير مسجلة للتصدير!');
-        return;
+      const company = document.getElementById('companySelect').value;
+      const approvalRow = document.getElementById('invApprovalRow');
+      if (company === 'MedRight') {
+        approvalRow.classList.remove('hidden');
+        document.getElementById('invApprovalNo').innerText = document.getElementById('approvalNo').value || '-';
+      } else {
+        approvalRow.classList.add('hidden');
       }
 
-      const headers = ['التاريخ', 'اسم المريض', 'الشركة', 'رقم التذكرة', 'رقم الكارنيه', 'إجمالي المبلغ', 'مبلغ الخصم', 'تحمل المريض', 'مطلب الشركة', 'نوع العلاج'];
-      
-      const rows = invoices.map(inv => [
-        `"${inv.claimDate || ''}"`,
-        `"${inv.patientName || ''}"`,
-        `"${inv.company || ''}"`,
-        `"${inv.ticketNo || ''}"`,
-        `"${inv.cardNo || ''}"`,
-        (inv.totalAmount || 0).toFixed(2),
-        (inv.pharmacyDiscountValue || 0).toFixed(2),
-        (inv.patientPaid || 0).toFixed(2),
-        (inv.companyPaid || 0).toFixed(2),
-        inv.isMonthly ? '"علاج شهري"' : '"عادي"'
-      ]);
+      const invTbody = document.getElementById('invMedicinesTableBody');
+      invTbody.innerHTML = '';
+      let index = 1;
+      document.querySelectorAll('#medicinesTableBody tr').forEach(row => {
+        const name = row.querySelector('.med-name').value;
+        const qty = row.querySelector('.med-qty').value;
+        const qtyNote = row.querySelector('.med-qty-note') ? row.querySelector('.med-qty-note').value : '';
+        const price = row.querySelector('.med-price').value;
+        const total = row.querySelector('.med-total').value;
 
-      const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-      const dateStr = new Date().toISOString().slice(0, 10);
-      downloadCSV(csvContent, `سجل_فواتير_التأمين_${dateStr}.csv`);
-    }
-
-    function exportReportsToCSV() {
-      if (!invoices || invoices.length === 0) {
-        alert('لا توجد بيانات لتصدير التقرير!');
-        return;
-      }
-
-      const companies = ['MetLife', 'MedRight', 'AXA'];
-      const headers = ['شركة التأمين', 'عدد الفواتير', 'إجمالي مطلب الشركة (ج.م)', 'إجمالي مدفوعات المرضى (ج.م)', 'الإجمالي الكلي (ج.م)'];
-
-      const rows = companies.map(comp => {
-        const compInvoices = invoices.filter(i => i.company === comp);
-        const totalComp = compInvoices.reduce((sum, i) => sum + (i.companyPaid || 0), 0);
-        const totalPat = compInvoices.reduce((sum, i) => sum + (i.patientPaid || 0), 0);
-        
-        return [
-          `"${comp}"`,
-          compInvoices.length,
-          totalComp.toFixed(2),
-          totalPat.toFixed(2),
-          (totalComp + totalPat).toFixed(2)
-        ];
+        if(name) {
+          const displayQty = qtyNote ? qtyNote : qty;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="border border-slate-400 p-2 text-right">${index++}</td>
+            <td class="border border-slate-400 p-2 text-right">${name}</td>
+            <td class="border border-slate-400 p-2 text-center">${displayQty}</td>
+            <td class="border border-slate-400 p-2 text-left">${price}</td>
+            <td class="border border-slate-400 p-2 text-left">${total}</td>
+          `;
+          invTbody.appendChild(tr);
+        }
       });
 
-      const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-      const dateStr = new Date().toISOString().slice(0, 10);
-      downloadCSV(csvContent, `تقرير_شركات_التأمين_${dateStr}.csv`);
+      const discountPct = parseFloat(document.getElementById('pharmacyDiscountPercent').value) || 0;
+      document.getElementById('invDiscount').innerText = discountPct + '%';
+      document.getElementById('invTotal').innerText = (parseFloat(document.getElementById('totalAmount').value) || 0).toFixed(2) + ' ج.م';
+      document.getElementById('invPatientPaid').innerText = (parseFloat(document.getElementById('patientPaid').value) || 0).toFixed(2);
+      document.getElementById('invCompanyPaid').innerText = (parseFloat(document.getElementById('companyPaid').value) || 0).toFixed(2);
+    }
+
+    window.addEventListener('beforeprint', prepareInvoiceForPrint);
+
+    function printCurrentForm() {
+      prepareInvoiceForPrint();
+      window.print();
     }
   </script>
 </body>
