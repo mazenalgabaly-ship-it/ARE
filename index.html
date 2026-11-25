@@ -6,7 +6,6 @@
   <title>نظام صيدلية الجبلي للتأمين الطبي v3.6</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- مكتبة تحويل الـ PDF إلى صور داخل المتصفح -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -56,7 +55,7 @@
   <!-- الشريط الجانبي Sidebar -->
   <aside class="w-64 bg-slate-900 text-white flex flex-col no-print shrink-0">
     <div class="p-5 border-b border-slate-800 flex items-center gap-3">
-      <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow-sm"><i class="fa-solid fa-prescription-bottle-medical text-xl"></i></div>
+      <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow"><i class="fa-solid fa-prescription-bottle-medical text-xl"></i></div>
       <div>
         <h1 class="font-extrabold text-base leading-tight" id="sidebarPharmName">صيدلية الجبلي</h1>
         <p class="text-xs text-slate-400">نظام التأمين الطبي v3.6</p>
@@ -64,19 +63,19 @@
     </div>
 
     <nav class="flex-1 p-4 space-y-1.5 text-sm font-semibold">
-      <button onclick="switchTab('home')" id="nav-home" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white transition">
+      <button type="button" onclick="switchTab('home')" id="nav-home" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white transition">
         <i class="fa-solid fa-chart-pie w-5"></i> الصفحة الرئيسية
       </button>
-      <button onclick="switchTab('newInvoice')" id="nav-newInvoice" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
+      <button type="button" onclick="switchTab('newInvoice')" id="nav-newInvoice" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
         <i class="fa-solid fa-file-circle-plus w-5"></i> إدخال فاتورة جديدة
       </button>
-      <button onclick="switchTab('records')" id="nav-records" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
+      <button type="button" onclick="switchTab('records')" id="nav-records" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
         <i class="fa-solid fa-folder-open w-5"></i> سجل الفواتير والتعديل
       </button>
-      <button onclick="switchTab('reports')" id="nav-reports" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
+      <button type="button" onclick="switchTab('reports')" id="nav-reports" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
         <i class="fa-solid fa-file-invoice-dollar w-5"></i> التقارير الشهرية
       </button>
-      <button onclick="switchTab('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
+      <button type="button" onclick="switchTab('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
         <i class="fa-solid fa-gear w-5"></i> الإعدادات
       </button>
     </nav>
@@ -91,36 +90,36 @@
 
     <!-- 1. الصفحة الرئيسية (Dashboard) -->
     <section id="page-home" class="tab-section space-y-6">
-      <div class="flex justify-between items-center bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80">
+      <div class="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
         <div>
           <h2 class="text-xl font-extrabold text-slate-800">لوحة التحكم واستعلامات</h2>
           <p class="text-xs text-slate-500 mt-0.5">ملخص الأداء والمطالبات الشهرية</p>
         </div>
-        <button onclick="switchTab('newInvoice')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center gap-2 transition">
+        <button type="button" onclick="switchTab('newInvoice')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center gap-2 transition">
           <i class="fa-solid fa-plus"></i> فاتورة جديدة
         </button>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80">
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <p class="text-xs font-bold text-slate-500">إجمالي المطلوب من الشركات</p>
           <h3 class="text-2xl font-extrabold text-blue-600 mt-1.5" id="dashTotalCompany">0.00 ج.م</h3>
         </div>
-        <div class="bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80">
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <p class="text-xs font-bold text-slate-500">إجمالي مدفوعات المرضى</p>
           <h3 class="text-2xl font-extrabold text-emerald-600 mt-1.5" id="dashTotalPatient">0.00 ج.م</h3>
         </div>
-        <div class="bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80">
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <p class="text-xs font-bold text-slate-500">عدد الفواتير المسجلة</p>
           <h3 class="text-2xl font-extrabold text-slate-800 mt-1.5" id="dashCount">0</h3>
         </div>
-        <div class="bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80">
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <p class="text-xs font-bold text-slate-500">فواتير العلاج الشهري</p>
           <h3 class="text-2xl font-extrabold text-amber-600 mt-1.5" id="dashMonthlyCount">0</h3>
         </div>
       </div>
 
-      <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80">
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <h3 class="font-bold text-slate-700 mb-4">توزيع المطلوب من الشركات حسب شركة التأمين</h3>
         <div class="h-64">
           <canvas id="companyChart"></canvas>
@@ -130,13 +129,13 @@
 
     <!-- 2. صفحة إدخال فاتورة جديدة -->
     <section id="page-newInvoice" class="tab-section hidden space-y-6">
-      <div class="flex justify-between items-center bg-white p-4 rounded-2xl shadow-xs border border-slate-200/80">
+      <div class="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
         <h2 class="text-xl font-extrabold text-slate-800" id="formTitle">إدخال فاتورة تأمين جديدة</h2>
         <button type="button" onclick="resetForm()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-3.5 rounded-xl transition">إعادة ضبط النموذج</button>
       </div>
 
       <!-- القراءة الذكية بواسطة Gemini AI -->
-      <div class="bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80 space-y-4">
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
         <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-blue-600"></i> القراءة الذكية للروشتة (Gemini AI)</h3>
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
@@ -172,7 +171,7 @@
       </div>
 
       <!-- إدخال البيانات والتعديل -->
-      <form id="claimForm" onsubmit="event.preventDefault(); saveRecord();" class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80 space-y-6">
+      <form id="claimForm" onsubmit="event.preventDefault(); saveRecord();" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
         <input type="hidden" id="editingId" value="">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
@@ -264,7 +263,7 @@
 
     <!-- 3. صفحة سجل الفواتير والتعديل -->
     <section id="page-records" class="tab-section hidden space-y-6">
-      <div class="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80">
+      <div class="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
         <div>
           <h2 class="text-xl font-extrabold text-slate-800">سجل الفواتير المحفوظة</h2>
           <p class="text-xs text-slate-500 mt-0.5">عرض، تعديل، طباعة، أو حذف أي فاتورة</p>
@@ -272,7 +271,7 @@
         <input type="text" id="searchRecordInput" onkeyup="filterRecords()" placeholder="بحث باسم المريض أو الكارنيه..." class="border border-slate-300 rounded-xl px-3.5 py-2 text-xs w-full sm:w-72">
       </div>
 
-      <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full text-xs text-right border-collapse">
             <thead>
@@ -295,9 +294,8 @@
 
     <!-- 4. صفحة التقارير الشهرية واستعراض مطالبات الشركات -->
     <section id="page-reports" class="tab-section hidden space-y-6">
-      <!-- قائمة الشركات بالشهر المحدد -->
       <div id="reportsOverviewView" class="space-y-6">
-        <div class="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80">
+        <div class="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <div>
             <h2 class="text-xl font-extrabold text-slate-800">التقارير الشهرية لشركات التأمين</h2>
             <p class="text-xs text-slate-500 mt-0.5">اختر الشهر واضغط على أي شركة للدخول إلى مطالباتها</p>
@@ -311,9 +309,8 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="companyReportsGrid"></div>
       </div>
 
-      <!-- صفحة مطالبات الشركة المختارة -->
       <div id="companyDetailReportView" class="hidden space-y-5">
-        <div class="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80">
+        <div class="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <div class="flex items-center gap-3">
             <button type="button" onclick="backToReportsOverview()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition">
               <i class="fa-solid fa-arrow-right"></i> رجوع للشركات
@@ -326,7 +323,7 @@
           <div id="detailReportSummaryBadges" class="flex flex-wrap gap-2 text-xs font-bold"></div>
         </div>
 
-        <div class="bg-white p-4 rounded-2xl shadow-xs border border-slate-200/80 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input type="text" id="detailSearchInput" oninput="renderCompanyDetailTable()" placeholder="بحث باسم المريض أو رقم الكارنيه..." class="border border-slate-300 rounded-xl px-3 py-2 text-xs">
           <input type="date" id="detailDateFilter" onchange="renderCompanyDetailTable()" class="border border-slate-300 rounded-xl px-3 py-2 text-xs">
           <select id="detailSortSelect" onchange="renderCompanyDetailTable()" class="border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold">
@@ -337,7 +334,7 @@
           </select>
         </div>
 
-        <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-xs text-right border-collapse">
               <thead>
@@ -365,7 +362,7 @@
     <section id="page-settings" class="tab-section hidden space-y-6">
       <h2 class="text-xl font-extrabold text-slate-800">إعدادات النظام والبيانات الضريبية</h2>
 
-      <form id="settingsForm" onsubmit="event.preventDefault(); saveSettings();" class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80 space-y-4 max-w-2xl">
+      <form id="settingsForm" onsubmit="event.preventDefault(); saveSettings();" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4 max-w-2xl">
         <div>
           <label class="block text-xs font-bold mb-1">اسم الصيدلية</label>
           <input type="text" id="settingPharmacyName" class="w-full border rounded-xl p-2 text-sm">
@@ -475,7 +472,9 @@
     const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
     const GEMINI_API_VERSION = 'v1beta';
 
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    if (window.pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
 
     let invoices = JSON.parse(localStorage.getItem('pharmacy_invoices_v2')) || [];
     let settings = JSON.parse(localStorage.getItem('pharmacy_settings_v2')) || {
@@ -504,7 +503,7 @@
       document.getElementById('settingCommReg').value = settings.commReg || '';
       document.getElementById('settingTaxReg').value = settings.taxReg || '';
       document.getElementById('settingApiKey').value = settings.apiKey || '';
-      if(settings.apiKey) document.getElementById('apiKeyInput').value = settings.apiKey;
+      if (settings.apiKey) document.getElementById('apiKeyInput').value = settings.apiKey;
 
       document.getElementById('sidebarPharmName').innerText = settings.pharmacyName || 'صيدلية الجبلي';
       document.getElementById('sidebarFooter').innerHTML =
@@ -524,6 +523,7 @@
     function switchTab(tabName) {
       document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
       const target = document.getElementById(`page-${tabName}`);
+      if (!target) return;
       target.classList.remove('hidden');
       target.classList.remove('tab-section');
       void target.offsetWidth;
@@ -534,14 +534,14 @@
         btn.classList.add('text-slate-400');
       });
       const activeBtn = document.getElementById(`nav-${tabName}`);
-      if(activeBtn) {
+      if (activeBtn) {
         activeBtn.classList.add('bg-blue-600', 'text-white');
         activeBtn.classList.remove('text-slate-400');
       }
 
-      if(tabName === 'home') renderDashboard();
-      if(tabName === 'records') renderRecordsTable();
-      if(tabName === 'reports') {
+      if (tabName === 'home') renderDashboard();
+      if (tabName === 'records') renderRecordsTable();
+      if (tabName === 'reports') {
         populateReportMonths();
         if (activeReportCompany && activeReportMonth) {
           openCompanyReport(activeReportCompany);
@@ -551,7 +551,6 @@
       }
     }
 
-    // تنسيق عرض الكمية (علب وأشرطة)
     function formatQuantityLabel(boxes, strips) {
       const b = parseInt(boxes) || 0;
       const s = parseInt(strips) || 0;
@@ -568,7 +567,7 @@
       tr.innerHTML = `
         <td class="p-1.5 border"><input type="text" class="med-name w-full p-1.5 border rounded-lg" value="${name}" placeholder="اسم الدواء"></td>
         <td class="p-1.5 border"><input type="number" step="0.5" class="med-qty w-full p-1.5 border rounded-lg text-center" value="${qty}" min="0" oninput="updateRowTotal(this)"></td>
-        <td class="p-1.5 border"><input type="text" class="med-qty-note w-full p-1.5 border rounded-lg text-center text-blue-800 bg-blue-50/50" value="${qtyNote}" placeholder="مثال: 2 علبة و 3 شريط"></td>
+        <td class="p-1.5 border"><input type="text" class="med-qty-note w-full p-1.5 border rounded-lg text-center text-blue-800 bg-blue-50" value="${qtyNote}" placeholder="مثال: 2 علبة و 3 شريط"></td>
         <td class="p-1.5 border"><input type="number" step="0.01" class="med-price w-full p-1.5 border rounded-lg text-left" value="${price}" oninput="updateRowTotal(this)"></td>
         <td class="p-1.5 border"><input type="number" step="0.01" class="med-total w-full p-1.5 bg-slate-100 border rounded-lg text-left font-bold" value="${(qty * price).toFixed(2)}" readonly></td>
         <td class="p-1.5 border text-center"><button type="button" onclick="removeRow(this)" class="text-red-600 hover:text-red-800 font-bold px-2">✕</button></td>
@@ -676,39 +675,27 @@
           الشركة المختارة حالياً هي: ${selectedCompany}.
 
           استخرج البيانات التالية بدقة والتزم بالقواعد الصارمة لكل شركة:
-1. patientName: اسم المريض.
-2. ticketNo: رقم التذكرة أو المطالبة (Claim / Ticket No).
-3. cardNo: رقم الكارنيه.
-  - قاعدة صارمة لشركة MetLife (ميتلايف): يجب استخراج رقم الكارنيه حصراً من خانة (Staff) أو (Staff ID / Staff No)، وتجاهل رقم (Member) تماماً وعدم وضعه في cardNo.
-4. nationalId: الرقم القومي إن وجد.
-5. approvalNo: رقم الموافقة إن وجد (خاصة لميدرايت MedRight).
-6. isMonthly: true أو false (هل هي علاج شهري).
-7. medicines: مصفوفة تحتوي على كل دواء بالحقول التالية:
-  - name: اسم الدواء فقط نظيفاً بدون أي أرقام كمية أو شرطات تخص الكمية.
-  - boxes: عدد العلب (رقم صحيح).
-  - strips: عدد الأشرطة (رقم صحيح).
-  - qty: إجمالي عدد العلب (إذا كان هناك علب فقط ضع عدد العلب، وإذا لم يوجد علب ضع 1).
-  - price: سعر الوحدة للعلبة الواحدة.
-  - قاعدة صارمة لصيغة الكميات في MedRight والمستندات المشابهة: إذا ظهرت الكمية على هيئة رقمين بينهما شرطة مثل (2-3) أو (1-2):
-    - الرقم الموجود على شمال الشرطة (اليسار) = عدد العلب (boxes).
-    - الرقم الموجود على يمين الشرطة (اليمين) = عدد الأشرطة (strips).
-    - مثال: "2-3" تعني boxes: 2 و strips: 3.
-    - مثال: "1-2" تعني boxes: 1 و strips: 2.
-    - لا تدمج هذه الأرقام أو الشرطة في اسم الدواء (name) أبداً.
+          1. patientName: اسم المريض.
+          2. ticketNo: رقم التذكرة أو المطالبة (Claim / Ticket No).
+          3. cardNo: رقم الكارنيه.
+             - قاعدة صارمة لشركة MetLife (ميتلايف): يجب استخراج رقم الكارنيه حصراً من خانة (Staff) أو (Staff ID / Staff No)، وتجاهل رقم (Member) تماماً وعدم وضعه في cardNo.
+          4. nationalId: الرقم القومي إن وجد.
+          5. approvalNo: رقم الموافقة إن وجد (خاصة لميدرايت MedRight).
+          6. isMonthly: true أو false (هل هي علاج شهري).
+          7. medicines: مصفوفة تحتوي على كل دواء بالحقول التالية:
+             - name: اسم الدواء فقط نظيفاً بدون أي أرقام كمية أو شرطات تخص الكمية.
+             - boxes: عدد العلب (رقم صحيح).
+             - strips: عدد الأشرطة (رقم صحيح).
+             - qty: إجمالي عدد العلب (إذا كان هناك علب فقط ضع عدد العلب، وإذا لم يوجد علب ضع 1).
+             - price: سعر الوحدة للعلبة الواحدة.
+             - قاعدة صارمة لصيغة الكميات في MedRight والمستندات المشابهة: إذا ظهرت الكمية على هيئة رقمين بينهما شرطة مثل (2-3) أو (1-2):
+               * الرقم الموجود على شمال الشرطة (اليسار) = عدد العلب (boxes).
+               * الرقم الموجود على يمين الشرطة (اليمين) = عدد الأشرطة (strips).
+               * مثال: "2-3" تعني boxes: 2 و strips: 3.
+               * مثال: "1-2" تعني boxes: 1 و strips: 2.
+               * لا تدمج هذه الأرقام أو الشرطة في اسم الدواء (name) أبداً.
 
           تنبيه هام: يجب أن تكون الإجابة عبارة عن نص JSON فقط بدون أي مقدمات أو مؤخرات أو علامات markdown.
-          مثال للـ JSON المطلوب:
-          {
-            "patientName": "أحمد محمد",
-            "ticketNo": "12345",
-            "cardNo": "98765",
-            "nationalId": "",
-            "approvalNo": "",
-            "isMonthly": false,
-            "medicines": [
-              {"name": "Panadol Extra", "boxes": 2, "strips": 3, "qty": 2, "price": 20.0}
-            ]
-          }
         `;
 
         const apiUrl = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${selectedModel}:generateContent?key=${apiKey}`;
@@ -733,16 +720,15 @@
         }
 
         if (!data.candidates || !data.candidates[0]) {
-          throw new Error("لم يتم استخراج أي بيانات، تأكد من وضوح الروشتة.");
+          throw new Error('لم يتم استخراج أي بيانات، تأكد من وضوح الروشتة.');
         }
 
-        let textResult = data.candidates[0].content.parts[0].text;
-        
+        const textResult = data.candidates[0].content.parts[0].text;
         const jsonMatch = textResult.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-          throw new Error("لم يتمكن النظام من قراءة تنسيق البيانات المرجعة.");
+          throw new Error('لم يتمكن النظام من قراءة تنسيق البيانات المرجعة.');
         }
-        
+
         const parsed = JSON.parse(jsonMatch[0]);
 
         if (parsed.patientName) document.getElementById('patientName').value = parsed.patientName;
@@ -779,9 +765,8 @@
 
         recalculateOverallTotal();
         alert('تم استخراج البيانات وتعبئتها في الفاتورة بنجاح!');
-
       } catch (err) {
-        console.error("AI Error:", err);
+        console.error('AI Error:', err);
         alert('حدث خطأ أثناء قراءة البيانات: ' + err.message);
       } finally {
         btnText.innerHTML = '<i class="fa-solid fa-brain"></i> استخراج البيانات';
@@ -820,16 +805,16 @@
         medicines: medicines
       };
 
-      if(editingId) {
+      if (editingId) {
         const index = invoices.findIndex(i => i.id === editingId);
-        if(index !== -1) invoices[index] = invoiceData;
+        if (index !== -1) invoices[index] = invoiceData;
       } else {
         invoices.push(invoiceData);
       }
 
       localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
       populateReportMonths();
-      alert("تم حفظ الفاتورة بنجاح في قاعدة البيانات!");
+      alert('تم حفظ الفاتورة بنجاح في قاعدة البيانات!');
       resetForm();
       switchTab('records');
     }
@@ -875,7 +860,7 @@
 
     function editInvoice(id) {
       const inv = invoices.find(i => i.id === id);
-      if(!inv) return;
+      if (!inv) return;
 
       closeClaimModal();
       document.getElementById('editingId').value = inv.id;
@@ -898,14 +883,14 @@
 
       const tbody = document.getElementById('medicinesTableBody');
       tbody.innerHTML = '';
-      if(inv.medicines) {
+      if (inv.medicines) {
         inv.medicines.forEach(m => addMedicineRow(m.name, m.qty, m.price, m.qtyNote || ''));
       }
       switchTab('newInvoice');
     }
 
     function deleteInvoice(id) {
-      if(confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) {
+      if (confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) {
         invoices = invoices.filter(i => i.id !== id);
         localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
         populateReportMonths();
@@ -938,26 +923,26 @@
         companyData[i.company] = (companyData[i.company] || 0) + (i.companyPaid || 0);
       });
 
-      const ctx = document.getElementById('companyChart').getContext('2d');
-      if(chartInstance) chartInstance.destroy();
-      chartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: Object.keys(companyData),
-          datasets: [{
-            label: 'المطلوب من الشركة (ج.م)',
-            data: Object.values(companyData),
-            backgroundColor: '#2563eb',
-            borderRadius: 8
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
+      const canvasEl = document.getElementById('companyChart');
+      if (canvasEl && window.Chart) {
+        const ctx = canvasEl.getContext('2d');
+        if (chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: Object.keys(companyData),
+            datasets: [{
+              label: 'المطلوب من الشركة (ج.م)',
+              data: Object.values(companyData),
+              backgroundColor: '#2563eb',
+              borderRadius: 8
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
     }
 
-    // =========================================================
-    // التقارير الشهرية والدخول لصفحة كل شركة
-    // =========================================================
     function formatArabicMonth(yyyyMm) {
       if (!yyyyMm || yyyyMm === 'ALL') return 'جميع الأشهر';
       const [year, month] = yyyyMm.split('-');
@@ -1009,7 +994,7 @@
 
         const card = document.createElement('div');
         card.onclick = () => openCompanyReport(comp);
-        card.className = 'bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80 hover:border-blue-400 hover:shadow-md cursor-pointer transition';
+        card.className = 'bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-400 hover:shadow-md cursor-pointer transition';
         card.innerHTML = `
           <div class="flex items-center justify-between border-b pb-3 mb-3">
             <h3 class="font-extrabold text-lg text-slate-800">${comp}</h3>
@@ -1209,7 +1194,7 @@
       invTbody.innerHTML = '';
       let index = 1;
       (dataObj.medicines || []).forEach(m => {
-        if(m.name) {
+        if (m.name) {
           const displayQty = m.qtyNote ? m.qtyNote : m.qty;
           const tr = document.createElement('tr');
           tr.innerHTML = `
