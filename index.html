@@ -508,7 +508,7 @@
 
       document.getElementById('sidebarPharmName').innerText = settings.pharmacyName || 'صيدلية الجبلي';
       document.getElementById('sidebarFooter').innerHTML =
-        `${settings.address || 'شارع صلاح سالم - الباجور'} <br> س.ت: ${settings.commReg \vert{}\vert{} '60961'} \vert{} ب.ض: ${settings.taxReg || '611509792'}`;
+        `${settings.address || 'شارع صلاح سالم - الباجور'} <br> س.ت: ${settings.commReg || '60961'} | ب.ض: ${settings.taxReg || '611509792'}`;
     }
 
     function toggleMedrightFields() {
@@ -523,7 +523,17 @@
 
     function switchTab(tabName) {
       document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
-      const target = document.getElementById(`page-${tabName}`); target.classList.remove('hidden'); target.classList.remove('tab-section'); void target.offsetWidth; target.classList.add('tab-section');  document.querySelectorAll('nav button').forEach(btn => { btn.classList.remove('bg-blue-600', 'text-white'); btn.classList.add('text-slate-400'); }); const activeBtn = document.getElementById(`nav-${tabName}`);
+      const target = document.getElementById(`page-${tabName}`);
+      target.classList.remove('hidden');
+      target.classList.remove('tab-section');
+      void target.offsetWidth;
+      target.classList.add('tab-section');
+
+      document.querySelectorAll('nav button').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('text-slate-400');
+      });
+      const activeBtn = document.getElementById(`nav-${tabName}`);
       if(activeBtn) {
         activeBtn.classList.add('bg-blue-600', 'text-white');
         activeBtn.classList.remove('text-slate-400');
@@ -546,7 +556,8 @@
       const b = parseInt(boxes) || 0;
       const s = parseInt(strips) || 0;
       let parts = [];
-      if (b > 0) parts.push(`${b} علبة`); if (s > 0) parts.push(`${s} شريط`);
+      if (b > 0) parts.push(`${b} علبة`);
+      if (s > 0) parts.push(`${s} شريط`);
       return parts.length > 0 ? parts.join(' و ') : '';
     }
 
@@ -700,7 +711,25 @@
           }
         `;
 
-        const apiUrl = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${selectedModel}:generateContent?key=${apiKey}`;  const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [ { text: promptText }, { inline_data: { mime_type: mimeType, data: base64Data } } ] }] }) });  const data = await response.json();  if (!response.ok \vert{}\vert{} data.error) { throw new Error(data.error?.message \vert{}\vert{} `خطأ من السيرفر: ${response.status}`);
+        const apiUrl = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${selectedModel}:generateContent?key=${apiKey}`;
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: promptText },
+                { inline_data: { mime_type: mimeType, data: base64Data } }
+              ]
+            }]
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+          throw new Error(data.error?.message || `خطأ من السيرفر: ${response.status}`);
         }
 
         if (!data.candidates || !data.candidates[0]) {
@@ -835,4 +864,418 @@
           <td class="p-3 text-blue-700 font-bold">${(inv.companyPaid || 0).toFixed(2)} ج.م</td>
           <td class="p-3 text-emerald-700 font-bold">${(inv.patientPaid || 0).toFixed(2)} ج.م</td>
           <td class="p-3 text-center whitespace-nowrap">
-            <button type="button" onclick="printSavedInvoice('${inv.id}')" class="text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 font-bold px-2.
+            <button type="button" onclick="printSavedInvoice('${inv.id}')" class="text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 font-bold px-2.5 py-1 rounded-lg ml-1 transition"><i class="fa-solid fa-print"></i> طباعة</button>
+            <button type="button" onclick="editInvoice('${inv.id}')" class="text-blue-600 hover:text-blue-800 font-bold px-2"><i class="fa-solid fa-pen-to-square"></i> تعديل</button>
+            <button type="button" onclick="deleteInvoice('${inv.id}')" class="text-red-600 hover:text-red-800 font-bold px-2"><i class="fa-solid fa-trash"></i> حذف</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function editInvoice(id) {
+      const inv = invoices.find(i => i.id === id);
+      if(!inv) return;
+
+      closeClaimModal();
+      document.getElementById('editingId').value = inv.id;
+      document.getElementById('formTitle').innerText = 'تعديل الفاتورة رقم: ' + inv.ticketNo;
+      document.getElementById('patientName').value = inv.patientName;
+      document.getElementById('ticketNo').value = inv.ticketNo;
+      document.getElementById('cardNo').value = inv.cardNo;
+      document.getElementById('nationalId').value = inv.nationalId;
+      document.getElementById('patientPhone').value = inv.patientPhone;
+      document.getElementById('claimDate').value = inv.claimDate;
+      document.getElementById('companySelect').value = inv.company;
+      document.getElementById('approvalNo').value = inv.approvalNo || '';
+      document.getElementById('isMonthly').checked = inv.isMonthly;
+      document.getElementById('patientCopayPercent').value = inv.patientCopayPercent;
+      if (inv.pharmacyDiscountPercent !== undefined) {
+        document.getElementById('pharmacyDiscountPercent').value = inv.pharmacyDiscountPercent;
+      }
+
+      toggleMedrightFields();
+
+      const tbody = document.getElementById('medicinesTableBody');
+      tbody.innerHTML = '';
+      if(inv.medicines) {
+        inv.medicines.forEach(m => addMedicineRow(m.name, m.qty, m.price, m.qtyNote || ''));
+      }
+      switchTab('newInvoice');
+    }
+
+    function deleteInvoice(id) {
+      if(confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) {
+        invoices = invoices.filter(i => i.id !== id);
+        localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
+        populateReportMonths();
+        renderRecordsTable();
+        renderDashboard();
+      }
+    }
+
+    function filterRecords() {
+      const query = document.getElementById('searchRecordInput').value.toLowerCase();
+      const rows = document.querySelectorAll('#fullRecordsTableBody tr');
+      rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(query) ? '' : 'none';
+      });
+    }
+
+    function renderDashboard() {
+      const totalCompany = invoices.reduce((acc, cur) => acc + (cur.companyPaid || 0), 0);
+      const totalPatient = invoices.reduce((acc, cur) => acc + (cur.patientPaid || 0), 0);
+      const monthlyCount = invoices.filter(i => i.isMonthly).length;
+
+      document.getElementById('dashTotalCompany').innerText = totalCompany.toFixed(2) + ' ج.م';
+      document.getElementById('dashTotalPatient').innerText = totalPatient.toFixed(2) + ' ج.م';
+      document.getElementById('dashCount').innerText = invoices.length;
+      document.getElementById('dashMonthlyCount').innerText = monthlyCount;
+
+      const companyData = {};
+      invoices.forEach(i => {
+        companyData[i.company] = (companyData[i.company] || 0) + (i.companyPaid || 0);
+      });
+
+      const ctx = document.getElementById('companyChart').getContext('2d');
+      if(chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(companyData),
+          datasets: [{
+            label: 'المطلوب من الشركة (ج.م)',
+            data: Object.values(companyData),
+            backgroundColor: '#2563eb',
+            borderRadius: 8
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    // =========================================================
+    // التقارير الشهرية والدخول لصفحة كل شركة
+    // =========================================================
+    function formatArabicMonth(yyyyMm) {
+      if (!yyyyMm || yyyyMm === 'ALL') return 'جميع الأشهر';
+      const [year, month] = yyyyMm.split('-');
+      const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+      return `${months[parseInt(month, 10) - 1] || month} ${year}`;
+    }
+
+    function populateReportMonths() {
+      const select = document.getElementById('reportMonthFilter');
+      if (!select) return;
+      const prev = select.value;
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const set = new Set([currentMonth]);
+      invoices.forEach(inv => {
+        if (inv.claimDate && inv.claimDate.length >= 7) set.add(inv.claimDate.slice(0, 7));
+      });
+      const sorted = Array.from(set).sort((a, b) => b.localeCompare(a));
+      select.innerHTML = sorted.map(m => `<option value="${m}">${formatArabicMonth(m)}</option>`).join('') +
+        `<option value="ALL">جميع الأشهر</option>`;
+      if (prev && Array.from(select.options).some(o => o.value === prev)) {
+        select.value = prev;
+      } else {
+        select.value = sorted[0];
+      }
+    }
+
+    function getInvoicesForMonth(monthVal) {
+      if (!monthVal || monthVal === 'ALL') return invoices;
+      return invoices.filter(inv => inv.claimDate && inv.claimDate.startsWith(monthVal));
+    }
+
+    function renderReports() {
+      document.getElementById('reportsOverviewView').classList.remove('hidden');
+      document.getElementById('companyDetailReportView').classList.add('hidden');
+      activeReportCompany = null;
+
+      const selectedMonth = document.getElementById('reportMonthFilter').value;
+      activeReportMonth = selectedMonth;
+      const monthInvoices = getInvoicesForMonth(selectedMonth);
+
+      const grid = document.getElementById('companyReportsGrid');
+      grid.innerHTML = '';
+      const companies = ['MetLife', 'MedRight', 'AXA'];
+
+      companies.forEach(comp => {
+        const compInvoices = monthInvoices.filter(i => i.company === comp);
+        const totalCompany = compInvoices.reduce((acc, cur) => acc + (cur.companyPaid || 0), 0);
+        const totalProfit = compInvoices.reduce((acc, cur) => acc + getInvoiceFinancials(cur).netProfit, 0);
+
+        const card = document.createElement('div');
+        card.onclick = () => openCompanyReport(comp);
+        card.className = 'bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80 hover:border-blue-400 hover:shadow-md cursor-pointer transition';
+        card.innerHTML = `
+          <div class="flex items-center justify-between border-b pb-3 mb-3">
+            <h3 class="font-extrabold text-lg text-slate-800">${comp}</h3>
+            <span class="bg-slate-100 text-slate-700 text-xs font-bold px-2.5 py-1 rounded-lg">${compInvoices.length} مطالبة</span>
+          </div>
+          <p class="text-xs text-slate-500">الشهر: <span class="font-bold text-slate-700">${formatArabicMonth(selectedMonth)}</span></p>
+          <p class="text-xs text-slate-500 mt-1.5">المطلوب من الشركة: <span class="font-extrabold text-blue-600 text-base">${totalCompany.toFixed(2)} ج.م</span></p>
+          <p class="text-xs text-slate-500 mt-1">صافي الربح: <span class="font-bold text-emerald-600">${totalProfit.toFixed(2)} ج.م</span></p>
+          <div class="mt-4 pt-2 border-t text-xs font-bold text-blue-600 flex items-center justify-between">
+            <span>دخول لصفحة مطالبات الشركة</span>
+            <i class="fa-solid fa-arrow-left"></i>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openCompanyReport(companyKey) {
+      activeReportCompany = companyKey;
+      activeReportMonth = document.getElementById('reportMonthFilter').value;
+
+      document.getElementById('reportsOverviewView').classList.add('hidden');
+      document.getElementById('companyDetailReportView').classList.remove('hidden');
+
+      document.getElementById('detailReportCompanyTitle').innerText = `مطالبات شركة ${companyKey}`;
+      document.getElementById('detailReportMonthLabel').innerText = `الفترة: ${formatArabicMonth(activeReportMonth)}`;
+
+      renderCompanyDetailTable();
+    }
+
+    function backToReportsOverview() {
+      activeReportCompany = null;
+      renderReports();
+    }
+
+    function renderCompanyDetailTable() {
+      if (!activeReportCompany) return;
+
+      const list = getInvoicesForMonth(activeReportMonth).filter(i => i.company === activeReportCompany);
+      const search = document.getElementById('detailSearchInput').value.trim().toLowerCase();
+      const dateFilter = document.getElementById('detailDateFilter').value;
+      const sort = document.getElementById('detailSortSelect').value;
+
+      let filtered = list.filter(inv => {
+        const matchText = !search ||
+          (inv.patientName && inv.patientName.toLowerCase().includes(search)) ||
+          (inv.cardNo && inv.cardNo.toLowerCase().includes(search));
+        const matchDate = !dateFilter || inv.claimDate === dateFilter;
+        return matchText && matchDate;
+      });
+
+      filtered.sort((a, b) => {
+        if (sort === 'date-desc') return (b.claimDate || '').localeCompare(a.claimDate || '');
+        if (sort === 'date-asc') return (a.claimDate || '').localeCompare(b.claimDate || '');
+        if (sort === 'amount-desc') return (b.totalAmount || 0) - (a.totalAmount || 0);
+        if (sort === 'amount-asc') return (a.totalAmount || 0) - (b.totalAmount || 0);
+        return 0;
+      });
+
+      const sumTotal = filtered.reduce((s, i) => s + getInvoiceFinancials(i).total, 0);
+      const sumCompany = filtered.reduce((s, i) => s + getInvoiceFinancials(i).companyPaid, 0);
+      const sumProfit = filtered.reduce((s, i) => s + getInvoiceFinancials(i).netProfit, 0);
+
+      document.getElementById('detailReportSummaryBadges').innerHTML = `
+        <span class="bg-slate-100 text-slate-800 px-3 py-1.5 rounded-xl">العدد: ${filtered.length}</span>
+        <span class="bg-slate-100 text-slate-800 px-3 py-1.5 rounded-xl">الإجمالي: ${sumTotal.toFixed(2)} ج.م</span>
+        <span class="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-xl">المطلوب من الشركة: ${sumCompany.toFixed(2)} ج.م</span>
+        <span class="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-xl">صافي الربح: ${sumProfit.toFixed(2)} ج.م</span>
+      `;
+
+      const tbody = document.getElementById('companyDetailTableBody');
+      tbody.innerHTML = '';
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400 font-semibold">لا توجد مطالبات في هذا الشهر</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(inv => {
+        const fin = getInvoiceFinancials(inv);
+        const medsStr = (inv.medicines || []).map(m => m.name).filter(Boolean).join('، ') || '-';
+        const tr = document.createElement('tr');
+        tr.onclick = () => openClaimModal(inv.id);
+        tr.className = 'hover:bg-blue-50/50 cursor-pointer transition';
+        tr.innerHTML = `
+          <td class="p-3 font-bold">${inv.patientName}</td>
+          <td class="p-3">${inv.cardNo || '-'}</td>
+          <td class="p-3">${inv.patientPhone || '-'}</td>
+          <td class="p-3">${inv.claimDate}</td>
+          <td class="p-3 max-w-xs truncate">${medsStr}</td>
+          <td class="p-3 font-bold">${fin.total.toFixed(2)}</td>
+          <td class="p-3 text-amber-700 font-semibold">${fin.discountAmount.toFixed(2)} (${fin.discountPct}%)</td>
+          <td class="p-3 text-teal-700 font-semibold">${fin.patientPaid.toFixed(2)}</td>
+          <td class="p-3 text-blue-700 font-extrabold">${fin.companyPaid.toFixed(2)}</td>
+          <td class="p-3 text-emerald-700 font-extrabold">${fin.netProfit.toFixed(2)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openClaimModal(id) {
+      const inv = invoices.find(i => i.id === id);
+      if (!inv) return;
+      const fin = getInvoiceFinancials(inv);
+
+      document.getElementById('modalClaimTitle').innerText = `مطالبة: ${inv.patientName}`;
+      document.getElementById('modalClaimSubtitle').innerText = `الشركة: ${inv.company} | تذكرة #${inv.ticketNo} | التاريخ: ${inv.claimDate}`;
+
+      const medsHtml = (inv.medicines || []).map((m, i) => `
+        <tr class="border-b">
+          <td class="p-2">${i + 1}</td>
+          <td class="p-2 font-bold">${m.name || '-'}</td>
+          <td class="p-2 text-center">${m.qtyNote || m.qty || 1}</td>
+          <td class="p-2 text-left">${parseFloat(m.price || 0).toFixed(2)}</td>
+          <td class="p-2 text-left font-bold">${parseFloat(m.total || 0).toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      document.getElementById('modalClaimBody').innerHTML = `
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border">
+          <div><span class="text-slate-400 block">رقم الكارنيه</span><strong>${inv.cardNo || '-'}</strong></div>
+          <div><span class="text-slate-400 block">رقم الهاتف</span><strong>${inv.patientPhone || '-'}</strong></div>
+          <div><span class="text-slate-400 block">الرقم القومي</span><strong>${inv.nationalId || '-'}</strong></div>
+          <div><span class="text-slate-400 block">رقم التذكرة</span><strong>${inv.ticketNo || '-'}</strong></div>
+          <div><span class="text-slate-400 block">علاج شهري</span><strong>${inv.isMonthly ? 'نعم' : 'لا'}</strong></div>
+          ${inv.approvalNo ? `<div><span class="text-purple-600 block">موافقة ميدرايت</span><strong class="text-purple-800">${inv.approvalNo}</strong></div>` : ''}
+        </div>
+        <table class="w-full text-xs text-right border-collapse border">
+          <thead>
+            <tr class="bg-slate-100">
+              <th class="p-2 border w-8">#</th>
+              <th class="p-2 border">الدواء</th>
+              <th class="p-2 border text-center">الكمية</th>
+              <th class="p-2 border text-left">السعر</th>
+              <th class="p-2 border text-left">الإجمالي</th>
+            </tr>
+          </thead>
+          <tbody>${medsHtml || '<tr><td colspan="5" class="p-3 text-center text-slate-400">لا توجد أدوية</td></tr>'}</tbody>
+        </table>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center font-bold">
+          <div class="bg-slate-100 p-2.5 rounded-xl">الإجمالي<br><span class="text-sm">${fin.total.toFixed(2)}</span></div>
+          <div class="bg-amber-50 text-amber-800 p-2.5 rounded-xl">خصم<br><span class="text-sm">${fin.discountAmount.toFixed(2)}</span></div>
+          <div class="bg-teal-50 text-teal-800 p-2.5 rounded-xl">تحمل المريض<br><span class="text-sm">${fin.patientPaid.toFixed(2)}</span></div>
+          <div class="bg-blue-50 text-blue-800 p-2.5 rounded-xl">المطلوب من الشركة<br><span class="text-sm">${fin.companyPaid.toFixed(2)}</span></div>
+          <div class="bg-emerald-50 text-emerald-800 p-2.5 rounded-xl col-span-2 sm:col-span-1">صافي الربح<br><span class="text-sm">${fin.netProfit.toFixed(2)}</span></div>
+        </div>
+      `;
+
+      document.getElementById('modalPrintBtn').onclick = () => printSavedInvoice(inv.id);
+      document.getElementById('modalEditBtn').onclick = () => editInvoice(inv.id);
+
+      const modal = document.getElementById('claimDetailsModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeClaimModal() {
+      const modal = document.getElementById('claimDetailsModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function saveSettings() {
+      settings.pharmacyName = document.getElementById('settingPharmacyName').value;
+      settings.address = document.getElementById('settingAddress').value;
+      settings.commReg = document.getElementById('settingCommReg').value;
+      settings.taxReg = document.getElementById('settingTaxReg').value;
+      settings.apiKey = document.getElementById('settingApiKey').value;
+
+      localStorage.setItem('pharmacy_settings_v2', JSON.stringify(settings));
+      applySettingsToUI();
+      alert('تم حفظ الإعدادات بنجاح!');
+    }
+
+    function fillPrintableTemplate(dataObj) {
+      document.getElementById('printPharmName').innerText = settings.pharmacyName || 'صيدلية الجبلي';
+      document.getElementById('printPharmDetails').innerText = settings.address || '';
+      document.getElementById('printPharmReg').innerText = `سجل تجاري: ${settings.commReg || '60961'} | تسجيل ضريبي: ${settings.taxReg || '611509792'}`;
+      document.getElementById('invCompany').innerText = 'الشركة: ' + (dataObj.company || '-');
+      document.getElementById('invDate').innerText = dataObj.claimDate || '-';
+      document.getElementById('invTicket').innerText = dataObj.ticketNo || '-';
+      document.getElementById('invPatientName').innerText = dataObj.patientName || '-';
+      document.getElementById('invCardNo').innerText = dataObj.cardNo || '-';
+      document.getElementById('invNationalId').innerText = dataObj.nationalId || '-';
+      document.getElementById('invPhone').innerText = dataObj.patientPhone || '-';
+
+      const company = dataObj.company;
+      const approvalRow = document.getElementById('invApprovalRow');
+      if (company === 'MedRight') {
+        approvalRow.classList.remove('hidden');
+        document.getElementById('invApprovalNo').innerText = dataObj.approvalNo || '-';
+      } else {
+        approvalRow.classList.add('hidden');
+      }
+
+      const invTbody = document.getElementById('invMedicinesTableBody');
+      invTbody.innerHTML = '';
+      let index = 1;
+      (dataObj.medicines || []).forEach(m => {
+        if(m.name) {
+          const displayQty = m.qtyNote ? m.qtyNote : m.qty;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="border border-slate-400 p-2 text-right">${index++}</td>
+            <td class="border border-slate-400 p-2 text-right">${m.name}</td>
+            <td class="border border-slate-400 p-2 text-center">${displayQty}</td>
+            <td class="border border-slate-400 p-2 text-left">${m.price}</td>
+            <td class="border border-slate-400 p-2 text-left">${m.total}</td>
+          `;
+          invTbody.appendChild(tr);
+        }
+      });
+
+      const discountPct = parseFloat(dataObj.pharmacyDiscountPercent) || 0;
+      document.getElementById('invDiscount').innerText = discountPct + '%';
+      document.getElementById('invTotal').innerText = (parseFloat(dataObj.totalAmount) || 0).toFixed(2) + ' ج.م';
+      document.getElementById('invPatientPaid').innerText = (parseFloat(dataObj.patientPaid) || 0).toFixed(2);
+      document.getElementById('invCompanyPaid').innerText = (parseFloat(dataObj.companyPaid) || 0).toFixed(2);
+    }
+
+    function prepareInvoiceForPrint() {
+      const meds = [];
+      document.querySelectorAll('#medicinesTableBody tr').forEach(row => {
+        meds.push({
+          name: row.querySelector('.med-name').value,
+          qty: row.querySelector('.med-qty').value,
+          qtyNote: row.querySelector('.med-qty-note') ? row.querySelector('.med-qty-note').value : '',
+          price: row.querySelector('.med-price').value,
+          total: row.querySelector('.med-total').value
+        });
+      });
+
+      fillPrintableTemplate({
+        company: document.getElementById('companySelect').value,
+        claimDate: document.getElementById('claimDate').value,
+        ticketNo: document.getElementById('ticketNo').value,
+        patientName: document.getElementById('patientName').value,
+        cardNo: document.getElementById('cardNo').value,
+        nationalId: document.getElementById('nationalId').value,
+        patientPhone: document.getElementById('patientPhone').value,
+        approvalNo: document.getElementById('approvalNo').value,
+        medicines: meds,
+        pharmacyDiscountPercent: document.getElementById('pharmacyDiscountPercent').value,
+        totalAmount: document.getElementById('totalAmount').value,
+        patientPaid: document.getElementById('patientPaid').value,
+        companyPaid: document.getElementById('companyPaid').value
+      });
+    }
+
+    function printSavedInvoice(id) {
+      const inv = invoices.find(i => i.id === id);
+      if (!inv) return;
+      fillPrintableTemplate(inv);
+      window.print();
+    }
+
+    window.addEventListener('beforeprint', () => {
+      if (document.getElementById('claimDetailsModal').classList.contains('hidden')) {
+        prepareInvoiceForPrint();
+      }
+    });
+
+    function printCurrentForm() {
+      prepareInvoiceForPrint();
+      window.print();
+    }
+  </script>
+</body>
+</html>
