@@ -30,6 +30,7 @@
         background: #ffffff !important;
         margin: 0 !important;
         padding: 0 !important;
+        width: 100% !important;
         height: auto !important;
         overflow: visible !important;
       }
@@ -38,7 +39,7 @@
       }
       #printableInvoice {
         display: block !important;
-        position: static !important;
+        position: relative !important;
         width: 100% !important;
         margin: 0 !important;
         padding: 20px !important;
@@ -46,6 +47,7 @@
         box-shadow: none !important;
         background: #ffffff !important;
         color: #000000 !important;
+        visibility: visible !important;
       }
     }
   </style>
@@ -136,7 +138,7 @@
 
       <!-- القراءة الذكية بواسطة Gemini AI -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-        <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-blue-600"></i> القراءة الذكية للروشتة (Gemini AI)</h3>
+        <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-blue-600"></i> القراءة الذكية للروشتة (Gemini AI - يدعم عدة صفحات PDF أو صور)</h3>
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label class="block text-xs font-bold text-slate-600 mb-1">شركة التأمين (تلقائي / يدوي)</label>
@@ -160,8 +162,8 @@
             <input type="password" id="apiKeyInput" placeholder="أدخل المفتاح هنا..." class="w-full border border-slate-300 rounded-xl p-2 text-sm">
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">ملف الروشتة (صورة/PDF)</label>
-            <input type="file" id="pdfFileInput" accept="image/*,application/pdf" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
+            <label class="block text-xs font-bold text-slate-600 mb-1">ملفات الروشتة (PDF متعدد أو صور)</label>
+            <input type="file" id="pdfFileInput" accept="image/*,application/pdf" multiple class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
           </div>
           <div class="flex items-end">
             <button type="button" onclick="processPDFWithAI()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl text-sm flex items-center justify-center gap-2 transition">
@@ -509,6 +511,7 @@
     let activeReportCompany = null;
     let activeReportMonth = null;
     let manualCopayOverride = false;
+    let isPrintTemplatePrepared = false;
 
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('claimDate').valueAsDate = new Date();
@@ -667,19 +670,29 @@
       return { total, discountAmount, companyPaid, patientPaid, netProfit };
     }
 
-    async function convertPdfToImageBase64(file) {
+    // تحويل جميع صفحات ملف PDF (ورقتين أو أكثر) إلى صور Base64
+    async function convertPdfToImagesBase64(file, onProgress) {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const page = await pdf.getPage(1);
-      const viewport = page.getViewport({ scale: 2.0 });
+      const images = [];
 
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        if (onProgress) onProgress(pageNum, pdf.numPages);
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.8 });
 
-      await page.render({ canvasContext: context, viewport: viewport }).promise;
-      return canvas.toDataURL('image/png').split(',')[1];
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        images.push({
+          mimeType: 'image/png',
+          data: canvas.toDataURL('image/png').split(',')[1]
+        });
+      }
+      return images;
     }
 
     function fileToBase64(file) {
@@ -699,7 +712,6 @@
       return '';
     }
 
-    // هيكل JSON صارم مدعوم أصلياً في Gemini 3.8 Flash
     const CLAIM_RESPONSE_SCHEMA = {
       type: "OBJECT",
       properties: {
@@ -731,13 +743,13 @@
       required: ["company", "claimDate", "patientName", "ticketNo", "cardNo", "medicines"]
     };
 
-    async function callGeminiWithFallback(apiKey, primaryModel, promptText, mimeType, base64Data, btnText) {
+    async function callGeminiWithFallback(apiKey, primaryModel, promptText, mediaParts, btnText) {
       const modelsToTry = [primaryModel, ...FALLBACK_MODELS.filter(m => m !== primaryModel)];
       let lastError = null;
 
       for (let i = 0; i < modelsToTry.length; i++) {
         const modelName = modelsToTry[i];
-        btnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> جاري القراءة بـ ${modelName}...`;
+        btnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> جاري القراءة بـ ${modelName} (${mediaParts.length} صفحة/صورة)...`;
 
         const apiUrl = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${modelName}:generateContent?key=${apiKey}`;
 
@@ -747,7 +759,6 @@
           temperature: 0.1
         };
 
-        // تفعيل مستوى التفكير الخاص بجيل 3.8 و 4 لدقة أعلى في قراءة الروشتات
         if (modelName.startsWith('gemini-3.8') || modelName.startsWith('gemini-4')) {
           generationConfig.thinkingConfig = { thinkingLevel: "medium" };
         }
@@ -760,7 +771,7 @@
               contents: [{
                 parts: [
                   { text: promptText },
-                  { inline_data: { mime_type: mimeType, data: base64Data } }
+                  ...mediaParts
                 ]
               }],
               generationConfig: generationConfig
@@ -800,30 +811,37 @@
         alert('يرجى إدخال Gemini API Key أولاً!');
         return;
       }
-      if (!fileInput.files[0]) {
-        alert('يرجى اختيار صورة أو ملف PDF للروشتة!');
+      if (!fileInput.files || fileInput.files.length === 0) {
+        alert('يرجى اختيار صورة أو ملف PDF (صفحة أو أكثر) للروشتة!');
         return;
       }
 
-      btnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> جاري القراءة بـ ${selectedModel}...`;
+      btnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> جاري تجهيز الصفحات...`;
 
       try {
-        const file = fileInput.files[0];
-        let base64Data = '';
-        let mimeType = 'image/png';
+        const mediaParts = [];
+        const files = Array.from(fileInput.files);
 
-        if (file.type === 'application/pdf') {
-          base64Data = await convertPdfToImageBase64(file);
-        } else {
-          base64Data = await fileToBase64(file);
-          mimeType = file.type;
+        for (const file of files) {
+          if (file.type === 'application/pdf') {
+            const pdfPages = await convertPdfToImagesBase64(file, (curr, totalPages) => {
+              btnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> تحويل PDF: صفحة ${curr} من ${totalPages}...`;
+            });
+            pdfPages.forEach(img => {
+              mediaParts.push({ inline_data: { mime_type: img.mimeType, data: img.data } });
+            });
+          } else {
+            const base64Data = await fileToBase64(file);
+            mediaParts.push({ inline_data: { mime_type: file.type || 'image/png', data: base64Data } });
+          }
         }
 
         const promptText = `
           أنت مساعد صيدلي خبير في قراءة روشتات ومطالبات شركات التأمين الطبي في مصر.
-          اقرأ المستند المرفق واستخرج جميع البيانات بدقة وفق الحقول المحددة:
+          أمامك ${mediaParts.length} صفحة/صورة تابعة لنفس المطالبة أو الروشتة.
+          اقرأ جميع الصفحات من الأولى للأخيرة واجمع كل البيانات والأدوية والمبالغ بدقة في نتيجة واحدة موحدة:
 
-          - company: اسم شركة التأمين الموجود في الورقة ("MetLife" أو "MedRight" أو "AXA").
+          - company: اسم شركة التأمين الموجود في الأوراق ("MetLife" أو "MedRight" أو "AXA").
           - claimDate: تاريخ الروشتة أو المطالبة بصيغة YYYY-MM-DD (مثلاً "2026-11-25").
           - patientName: اسم المريض.
           - ticketNo: رقم التذكرة أو المطالبة (Claim / Ticket No).
@@ -833,16 +851,16 @@
           - patientPhone: رقم هاتف المريض إن وجد (وإلا نص فارغ "").
           - approvalNo: رقم الموافقة (Approval No) إن وجد (وإلا نص فارغ "").
           - isMonthly: true أو false (هل هي علاج شهري).
-          - discountAmount: قيمة الخصم بالجنيه المصري كما هو مكتوب في الورقة (إن وجد، وإلا 0).
-          - patientPaidAmount: قيمة تحمل المريض بالجنيه المصري كما هو مكتوب في الورقة (إن وجد، وإلا 0).
+          - discountAmount: إجمالي قيمة الخصم بالجنيه المصري عبر الصفحات (رقم عشري، وإلا 0).
+          - patientPaidAmount: إجمالي قيمة تحمل المريض بالجنيه المصري (رقم عشري، وإلا 0).
           - patientCopayPercent: نسبة تحمل المريض المئوية إن وجدت في الورقة (وإلا 0).
-          - medicines: كل دواء في الورقة:
+          - medicines: اجمع كل الأدوية من كل الصفحات في مصفوفة واحدة:
             * name: اسم الدواء فقط نظيفاً بدون أرقام الكمية.
             * qtyText: الكمية كما هي مكتوبة بالضبط في الورقة كنص (مثل "2" أو "2-3" أو "1 علبة").
             * price: سعر الوحدة للعلبة الواحدة.
         `;
 
-        const { data, usedModel } = await callGeminiWithFallback(apiKey, selectedModel, promptText, mimeType, base64Data, btnText);
+        const { data, usedModel } = await callGeminiWithFallback(apiKey, selectedModel, promptText, mediaParts, btnText);
 
         if (!data.candidates || !data.candidates[0]) {
           throw new Error('لم يتم استخراج أي بيانات، تأكد من وضوح الروشتة.');
@@ -905,7 +923,7 @@
           calculateInvoice();
         }
 
-        alert(`تم استخراج البيانات وتعبئتها في الفاتورة بنجاح باستخدام (${usedModel})!`);
+        alert(`تم استخراج البيانات من ${mediaParts.length} صفحة/صورة بنجاح باستخدام (${usedModel})!`);
       } catch (err) {
         console.error('AI Error:', err);
         alert('حدث خطأ أثناء قراءة البيانات: ' + err.message);
@@ -983,13 +1001,13 @@
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50';
         tr.innerHTML = `
-          <td class="p-3">${inv.claimDate}</td>
-          <td class="p-3 font-bold">${inv.patientName}</td>
-          <td class="p-3"><span class="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-lg font-semibold">${inv.company}</span></td>
-          <td class="p-3">${inv.ticketNo}</td>
-          <td class="p-3 font-bold">${(inv.totalAmount || 0).toFixed(2)} ج.م</td>
-          <td class="p-3 text-blue-700 font-bold">${(inv.companyPaid || 0).toFixed(2)} ج.م</td>
-          <td class="p-3 text-emerald-700 font-bold">${(inv.patientPaid || 0).toFixed(2)} ج.م</td>
+          <td class="p-3">${inv.claimDate || '-'}</td>
+          <td class="p-3 font-bold">${inv.patientName || '-'}</td>
+          <td class="p-3"><span class="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-lg font-semibold">${inv.company || '-'}</span></td>
+          <td class="p-3">${inv.ticketNo || '-'}</td>
+          <td class="p-3 font-bold">${(parseFloat(inv.totalAmount) || 0).toFixed(2)} ج.م</td>
+          <td class="p-3 text-blue-700 font-bold">${(parseFloat(inv.companyPaid) || 0).toFixed(2)} ج.م</td>
+          <td class="p-3 text-emerald-700 font-bold">${(parseFloat(inv.patientPaid) || 0).toFixed(2)} ج.م</td>
           <td class="p-3 text-center whitespace-nowrap">
             <button type="button" onclick="printSavedInvoice('${inv.id}')" class="text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 font-bold px-2.5 py-1 rounded-lg ml-1 transition"><i class="fa-solid fa-print"></i> طباعة</button>
             <button type="button" onclick="editInvoice('${inv.id}')" class="text-blue-600 hover:text-blue-800 font-bold px-2"><i class="fa-solid fa-pen-to-square"></i> تعديل</button>
@@ -1009,24 +1027,24 @@
 
       document.getElementById('editingId').value = inv.id;
       document.getElementById('formTitle').innerText = 'تعديل الفاتورة رقم: ' + inv.ticketNo;
-      document.getElementById('patientName').value = inv.patientName;
-      document.getElementById('ticketNo').value = inv.ticketNo;
-      document.getElementById('cardNo').value = inv.cardNo;
-      document.getElementById('nationalId').value = inv.nationalId;
-      document.getElementById('patientPhone').value = inv.patientPhone;
-      document.getElementById('claimDate').value = inv.claimDate;
-      document.getElementById('companySelect').value = inv.company;
+      document.getElementById('patientName').value = inv.patientName || '';
+      document.getElementById('ticketNo').value = inv.ticketNo || '';
+      document.getElementById('cardNo').value = inv.cardNo || '';
+      document.getElementById('nationalId').value = inv.nationalId || '';
+      document.getElementById('patientPhone').value = inv.patientPhone || '';
+      document.getElementById('claimDate').value = inv.claimDate || '';
+      document.getElementById('companySelect').value = inv.company || 'MetLife';
       document.getElementById('approvalNo').value = inv.approvalNo || '';
-      document.getElementById('isMonthly').checked = inv.isMonthly;
-      document.getElementById('patientCopayPercent').value = inv.patientCopayPercent;
+      document.getElementById('isMonthly').checked = Boolean(inv.isMonthly);
+      document.getElementById('patientCopayPercent').value = inv.patientCopayPercent || 0;
       document.getElementById('pharmacyDiscountAmount').value = fin.discountAmount.toFixed(2);
 
       const tbody = document.getElementById('medicinesTableBody');
       tbody.innerHTML = '';
-      if (inv.medicines) {
+      if (inv.medicines && inv.medicines.length > 0) {
         inv.medicines.forEach(m => {
           const qtyVal = m.qtyNote ? m.qtyNote : (m.qty || '1');
-          addMedicineRow(m.name, qtyVal, m.price);
+          addMedicineRow(m.name || '', qtyVal, m.price || 0);
         });
       }
 
@@ -1056,8 +1074,8 @@
     }
 
     function renderDashboard() {
-      const totalCompany = invoices.reduce((acc, cur) => acc + (cur.companyPaid || 0), 0);
-      const totalPatient = invoices.reduce((acc, cur) => acc + (cur.patientPaid || 0), 0);
+      const totalCompany = invoices.reduce((acc, cur) => acc + (parseFloat(cur.companyPaid) || 0), 0);
+      const totalPatient = invoices.reduce((acc, cur) => acc + (parseFloat(cur.patientPaid) || 0), 0);
       const monthlyCount = invoices.filter(i => i.isMonthly).length;
 
       document.getElementById('dashTotalCompany').innerText = totalCompany.toFixed(2) + ' ج.م';
@@ -1067,7 +1085,7 @@
 
       const companyData = {};
       invoices.forEach(i => {
-        companyData[i.company] = (companyData[i.company] || 0) + (i.companyPaid || 0);
+        companyData[i.company] = (companyData[i.company] || 0) + (parseFloat(i.companyPaid) || 0);
       });
 
       const canvasEl = document.getElementById('companyChart');
@@ -1136,7 +1154,7 @@
 
       companies.forEach(comp => {
         const compInvoices = monthInvoices.filter(i => i.company === comp);
-        const totalCompany = compInvoices.reduce((acc, cur) => acc + (cur.companyPaid || 0), 0);
+        const totalCompany = compInvoices.reduce((acc, cur) => acc + (parseFloat(cur.companyPaid) || 0), 0);
         const totalProfit = compInvoices.reduce((acc, cur) => acc + getInvoiceFinancials(cur).netProfit, 0);
 
         const card = document.createElement('div');
@@ -1356,14 +1374,18 @@
       let index = 1;
       (dataObj.medicines || []).forEach(m => {
         if (m.name) {
-          const displayQty = m.qtyNote ? m.qtyNote : m.qty;
+          const displayQty = m.qtyNote ? m.qtyNote : (m.qty || '1');
+          const qtyMult = parseQtyMultiplier(displayQty);
+          const unitPrice = parseFloat(m.price) || 0;
+          const rowTotal = m.total !== undefined && m.total !== '' ? (parseFloat(m.total) || 0) : (qtyMult * unitPrice);
+
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td class="border border-slate-400 p-2 text-right">${index++}</td>
             <td class="border border-slate-400 p-2 text-right">${m.name}</td>
             <td class="border border-slate-400 p-2 text-center">${displayQty}</td>
-            <td class="border border-slate-400 p-2 text-left">${m.price}</td>
-            <td class="border border-slate-400 p-2 text-left">${m.total}</td>
+            <td class="border border-slate-400 p-2 text-left">${unitPrice.toFixed(2)}</td>
+            <td class="border border-slate-400 p-2 text-left">${rowTotal.toFixed(2)}</td>
           `;
           invTbody.appendChild(tr);
         }
@@ -1404,22 +1426,32 @@
       });
     }
 
+    function executePrintNow() {
+      isPrintTemplatePrepared = true;
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => {
+          isPrintTemplatePrepared = false;
+        }, 500);
+      }, 60);
+    }
+
     function printSavedInvoice(id) {
       const inv = invoices.find(i => i.id === id);
       if (!inv) return;
       fillPrintableTemplate(inv);
-      window.print();
+      executePrintNow();
     }
 
     window.addEventListener('beforeprint', () => {
-      if (document.getElementById('claimDetailsModal').classList.contains('hidden')) {
+      if (!isPrintTemplatePrepared && !document.getElementById('page-newInvoice').classList.contains('hidden')) {
         prepareInvoiceForPrint();
       }
     });
 
     function printCurrentForm() {
       prepareInvoiceForPrint();
-      window.print();
+      executePrintNow();
     }
   </script>
 </body>
