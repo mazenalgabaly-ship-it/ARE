@@ -231,7 +231,7 @@
             <tbody id="medicinesTableBody"></tbody>
           </table>
 
-          <!-- تفاصيل الحساب والقيم (الخصم قيمة بالجنيه وليس نسبة) -->
+          <!-- تفاصيل الحساب والقيم (المطلوب من الشركة يُقرأ من الورقة مباشرة) -->
           <div class="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
             <div>
               <label class="block font-bold mb-1">إجمالي المبلغ (ج.م)</label>
@@ -247,11 +247,11 @@
             </div>
             <div>
               <label class="block font-bold mb-1">خصم (ج.م)</label>
-              <input type="number" step="0.01" id="pharmacyDiscountAmount" value="0" oninput="calculateInvoice()" class="w-full border rounded-xl p-2 font-bold bg-white text-amber-800">
+              <input type="number" step="0.01" id="pharmacyDiscountAmount" value="0" class="w-full border rounded-xl p-2 font-bold bg-white text-amber-800">
             </div>
             <div>
-              <label class="block font-bold mb-1">المطلوب من الشركة (ج.م)</label>
-              <input type="number" step="0.01" id="companyPaid" readonly class="w-full bg-slate-200 border rounded-xl p-2 font-bold text-blue-700">
+              <label class="block font-bold mb-1 text-blue-800">المطلوب من الشركة (ج.م - من الورقة)</label>
+              <input type="number" step="0.01" id="companyPaid" value="0" oninput="onCompanyPaidChange()" class="w-full bg-white border border-blue-300 rounded-xl p-2 font-bold text-blue-700">
             </div>
           </div>
         </div>
@@ -511,6 +511,7 @@
     let activeReportCompany = null;
     let activeReportMonth = null;
     let manualCopayOverride = false;
+    let manualCompanyOverride = false;
     let isPrintTemplatePrepared = false;
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -639,24 +640,30 @@
       if (total > 0) {
         document.getElementById('patientCopayPercent').value = ((patientPay / total) * 100).toFixed(2);
       }
-      const companyPay = Math.max(0, total - patientPay);
-      document.getElementById('companyPaid').value = companyPay.toFixed(2);
+      if (!manualCompanyOverride) {
+        const companyPay = Math.max(0, total - patientPay);
+        document.getElementById('companyPaid').value = companyPay.toFixed(2);
+      }
+    }
+
+    function onCompanyPaidChange() {
+      manualCompanyOverride = true;
     }
 
     function calculateInvoice() {
       const total = parseFloat(document.getElementById('totalAmount').value) || 0;
-      let patientPay = 0;
-
-      if (manualCopayOverride) {
-        patientPay = parseFloat(document.getElementById('patientPaid').value) || 0;
-      } else {
+      if (!manualCopayOverride) {
         const copayPct = parseFloat(document.getElementById('patientCopayPercent').value) || 0;
-        patientPay = total * (copayPct / 100);
+        const patientPay = total * (copayPct / 100);
         document.getElementById('patientPaid').value = patientPay.toFixed(2);
       }
-
-      const companyPay = Math.max(0, total - patientPay);
-      document.getElementById('companyPaid').value = companyPay.toFixed(2);
+      if (!manualCompanyOverride) {
+        const currentCompanyVal = parseFloat(document.getElementById('companyPaid').value);
+        if (isNaN(currentCompanyVal) || currentCompanyVal === 0) {
+          const patientPay = parseFloat(document.getElementById('patientPaid').value) || 0;
+          document.getElementById('companyPaid').value = Math.max(0, total - patientPay).toFixed(2);
+        }
+      }
     }
 
     function getInvoiceFinancials(inv) {
@@ -670,7 +677,6 @@
       return { total, discountAmount, companyPaid, patientPaid, netProfit };
     }
 
-    // تحويل جميع صفحات ملف PDF (ورقتين أو أكثر) إلى صور Base64
     async function convertPdfToImagesBase64(file, onProgress) {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -726,6 +732,7 @@
         isMonthly: { type: "BOOLEAN" },
         discountAmount: { type: "NUMBER" },
         patientPaidAmount: { type: "NUMBER" },
+        companyPaidAmount: { type: "NUMBER" },
         patientCopayPercent: { type: "NUMBER" },
         medicines: {
           type: "ARRAY",
@@ -839,7 +846,7 @@
         const promptText = `
           أنت مساعد صيدلي خبير في قراءة روشتات ومطالبات شركات التأمين الطبي في مصر.
           أمامك ${mediaParts.length} صفحة/صورة تابعة لنفس المطالبة أو الروشتة.
-          اقرأ جميع الصفحات من الأولى للأخيرة واجمع كل البيانات والأدوية والمبالغ بدقة في نتيجة واحدة موحدة:
+          اقرأ جميع الصفحات من الأولى للأخيرة واستخرج كل البيانات والأدوية والمبالغ بدقة كما هي مكتوبة في المستند دون تأليف أو حساب معادلات من عندك:
 
           - company: اسم شركة التأمين الموجود في الأوراق ("MetLife" أو "MedRight" أو "AXA").
           - claimDate: تاريخ الروشتة أو المطالبة بصيغة YYYY-MM-DD (مثلاً "2026-11-25").
@@ -851,8 +858,9 @@
           - patientPhone: رقم هاتف المريض إن وجد (وإلا نص فارغ "").
           - approvalNo: رقم الموافقة (Approval No) إن وجد (وإلا نص فارغ "").
           - isMonthly: true أو false (هل هي علاج شهري).
-          - discountAmount: إجمالي قيمة الخصم بالجنيه المصري عبر الصفحات (رقم عشري، وإلا 0).
-          - patientPaidAmount: إجمالي قيمة تحمل المريض بالجنيه المصري (رقم عشري، وإلا 0).
+          - discountAmount: قيمة الخصم بالجنيه المصري كما هي مكتوبة في الورقة (رقم عشري، وإلا 0).
+          - patientPaidAmount: قيمة تحمل المريض بالجنيه المصري كما هي مكتوبة في الورقة (رقم عشري، وإلا 0).
+          - companyPaidAmount: قيمة "المطلوب من الشركة" (Company Share / Net Claim / Payable by Company) بالجنيه المصري كما هي مكتوبة صراحةً في الورقة (رقم عشري، وإلا 0). لا تحسبها بمعادلة؛ اقرأ الرقم المكتوب في المستند كما هو.
           - patientCopayPercent: نسبة تحمل المريض المئوية إن وجدت في الورقة (وإلا 0).
           - medicines: اجمع كل الأدوية من كل الصفحات في مصفوفة واحدة:
             * name: اسم الدواء فقط نظيفاً بدون أرقام الكمية.
@@ -873,6 +881,9 @@
         }
 
         const parsed = JSON.parse(jsonMatch[0]);
+
+        manualCopayOverride = false;
+        manualCompanyOverride = false;
 
         const detectedCompany = normalizeCompanyName(parsed.company);
         if (detectedCompany) {
@@ -916,11 +927,17 @@
           if (total > 0) {
             document.getElementById('patientCopayPercent').value = ((extractedPatientPaid / total) * 100).toFixed(2);
           }
-          calculateInvoice();
         } else if (!isNaN(extractedCopayPct) && extractedCopayPct > 0) {
           manualCopayOverride = false;
           document.getElementById('patientCopayPercent').value = extractedCopayPct;
-          calculateInvoice();
+          document.getElementById('patientPaid').value = (total * (extractedCopayPct / 100)).toFixed(2);
+        }
+
+        // قراءة المطلوب من الشركة مباشرة من الورقة دون معادلة
+        const extractedCompanyPaid = parseFloat(parsed.companyPaidAmount);
+        if (!isNaN(extractedCompanyPaid) && extractedCompanyPaid >= 0) {
+          manualCompanyOverride = true;
+          document.getElementById('companyPaid').value = extractedCompanyPaid.toFixed(2);
         }
 
         alert(`تم استخراج البيانات من ${mediaParts.length} صفحة/صورة بنجاح باستخدام (${usedModel})!`);
@@ -979,12 +996,14 @@
 
     function resetForm() {
       manualCopayOverride = false;
+      manualCompanyOverride = false;
       document.getElementById('editingId').value = '';
       document.getElementById('formTitle').innerText = 'إدخال فاتورة تأمين جديدة';
       document.getElementById('claimForm').reset();
       document.getElementById('medicinesTableBody').innerHTML = '';
       document.getElementById('claimDate').valueAsDate = new Date();
       document.getElementById('pharmacyDiscountAmount').value = '0';
+      document.getElementById('companyPaid').value = '0';
       calculateInvoice();
     }
 
@@ -1049,8 +1068,9 @@
       }
 
       manualCopayOverride = true;
+      manualCompanyOverride = true;
       document.getElementById('patientPaid').value = fin.patientPaid.toFixed(2);
-      calculateInvoice();
+      document.getElementById('companyPaid').value = fin.companyPaid.toFixed(2);
       switchTab('newInvoice');
     }
 
