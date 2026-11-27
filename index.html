@@ -231,7 +231,7 @@
             <tbody id="medicinesTableBody"></tbody>
           </table>
 
-          <!-- تفاصيل الحساب والقيم (المطلوب من الشركة يُقرأ من الورقة مباشرة) -->
+          <!-- تفاصيل الحساب والقيم -->
           <div class="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
             <div>
               <label class="block font-bold mb-1">إجمالي المبلغ (ج.م)</label>
@@ -250,7 +250,7 @@
               <input type="number" step="0.01" id="pharmacyDiscountAmount" value="0" class="w-full border rounded-xl p-2 font-bold bg-white text-amber-800">
             </div>
             <div>
-              <label class="block font-bold mb-1 text-blue-800">المطلوب من الشركة (ج.م - من الورقة)</label>
+              <label class="block font-bold mb-1 text-blue-800">المطلوب من الشركة (ج.م)</label>
               <input type="number" step="0.01" id="companyPaid" value="0" oninput="onCompanyPaidChange()" class="w-full bg-white border border-blue-300 rounded-xl p-2 font-bold text-blue-700">
             </div>
           </div>
@@ -811,6 +811,7 @@
     async function processPDFWithAI() {
       const apiKey = document.getElementById('apiKeyInput').value || settings.apiKey;
       const selectedModel = document.getElementById('modelSelect').value || DEFAULT_GEMINI_MODEL;
+      const selectedCompanyHint = document.getElementById('companySelect').value;
       const fileInput = document.getElementById('pdfFileInput');
       const btnText = document.getElementById('btnText');
 
@@ -846,26 +847,30 @@
         const promptText = `
           أنت مساعد صيدلي خبير في قراءة روشتات ومطالبات شركات التأمين الطبي في مصر.
           أمامك ${mediaParts.length} صفحة/صورة تابعة لنفس المطالبة أو الروشتة.
-          اقرأ جميع الصفحات من الأولى للأخيرة واستخرج كل البيانات والأدوية والمبالغ بدقة كما هي مكتوبة في المستند دون تأليف أو حساب معادلات من عندك:
+          اقرأ جميع الصفحات من الأولى للأخيرة واستخرج كل البيانات والأدوية والمبالغ بدقة:
 
-          - company: اسم شركة التأمين الموجود في الأوراق ("MetLife" أو "MedRight" أو "AXA").
-          - claimDate: تاريخ الروشتة أو المطالبة بصيغة YYYY-MM-DD (مثلاً "2026-11-25").
-          - patientName: اسم المريض.
-          - ticketNo: رقم التذكرة أو المطالبة (Claim / Ticket No).
-          - cardNo: رقم الكارنيه.
-            * قاعدة صارمة جداً لشركة MetLife (ميتلايف): يجب استخراج رقم الكارنيه حصراً من خانة (Staff) أو (Staff ID / Staff No)، وتجاهل رقم (Member) تماماً وعدم وضعه في cardNo.
-          - nationalId: الرقم القومي إن وجد (وإلا نص فارغ "").
-          - patientPhone: رقم هاتف المريض إن وجد (وإلا نص فارغ "").
-          - approvalNo: رقم الموافقة (Approval No) إن وجد (وإلا نص فارغ "").
-          - isMonthly: true أو false (هل هي علاج شهري).
-          - discountAmount: قيمة الخصم بالجنيه المصري كما هي مكتوبة في الورقة (رقم عشري، وإلا 0).
-          - patientPaidAmount: قيمة تحمل المريض بالجنيه المصري كما هي مكتوبة في الورقة (رقم عشري، وإلا 0).
-          - companyPaidAmount: قيمة "المطلوب من الشركة" (Company Share / Net Claim / Payable by Company) بالجنيه المصري كما هي مكتوبة صراحةً في الورقة (رقم عشري، وإلا 0). لا تحسبها بمعادلة؛ اقرأ الرقم المكتوب في المستند كما هو.
-          - patientCopayPercent: نسبة تحمل المريض المئوية إن وجدت في الورقة (وإلا 0).
-          - medicines: اجمع كل الأدوية من كل الصفحات في مصفوفة واحدة:
-            * name: اسم الدواء فقط نظيفاً بدون أرقام الكمية.
-            * qtyText: الكمية كما هي مكتوبة بالضبط في الورقة كنص (مثل "2" أو "2-3" أو "1 علبة").
-            * price: سعر الوحدة للعلبة الواحدة.
+          1. company: اسم شركة التأمين الموجود في الأوراق ("MetLife" أو "MedRight" أو "AXA"). (الشركة المختارة حالياً في الواجهة: "${selectedCompanyHint}").
+          2. claimDate: تاريخ الروشتة أو المطالبة بصيغة YYYY-MM-DD (مثلاً "2026-11-25").
+          3. patientName: اسم المريض.
+          4. ticketNo: رقم التذكرة أو المطالبة:
+             - إذا كانت الشركة AXA (أكسا): استخرج الرقم من خانة (Claim Number) تحديداً. إذا لم تجد (Claim Number) أو كان فارغاً، أرجع القيمة "chronic" بالضبط.
+             - في باقي الشركات: استخرج رقم التذكرة أو المطالبة كما هو مكتوب في الورقة.
+          5. cardNo: رقم الكارنيه.
+             - قاعدة صارمة جداً لشركة MetLife (ميتلايف): يجب استخراج رقم الكارنيه حصراً من خانة (Staff) أو (Staff ID / Staff No)، وتجاهل رقم (Member) تماماً وعدم وضعه في cardNo.
+          6. nationalId: الرقم القومي إن وجد (وإلا نص فارغ "").
+          7. patientPhone: رقم هاتف المريض إن وجد (وإلا نص فارغ "").
+          8. approvalNo: رقم الموافقة (Approval No) إن وجد (وإلا نص فارغ "").
+          9. isMonthly: true أو false (هل هي علاج شهري).
+          10. discountAmount: قيمة الخصم بالجنيه المصري كما هي مكتوبة في الورقة (رقم عشري، وإلا 0).
+          11. patientPaidAmount: قيمة تحمل المريض بالجنيه المصري كما هي مكتوبة في الورقة (رقم عشري، وإلا 0).
+          12. companyPaidAmount: قيمة "المطلوب من الشركة" بالجنيه المصري:
+              - إذا كانت الشركة AXA (أكسا): استخرج القيمة حصراً من خانة (Insurer) كما هي مكتوبة في الورقة.
+              - في باقي الشركات: اقرأ قيمة المطلوب من الشركة كما هي مكتوبة في الورقة دون حساب معادلات.
+          13. patientCopayPercent: نسبة تحمل المريض المئوية إن وجدت في الورقة (وإلا 0).
+          14. medicines: اجمع كل الأدوية من كل الصفحات في مصفوفة واحدة:
+              - name: اسم الدواء فقط نظيفاً بدون أرقام الكمية.
+              - qtyText: الكمية كما هي مكتوبة بالضبط في الورقة كنص (مثل "2" أو "2-3" أو "1 علبة").
+              - price: سعر الوحدة للعلبة الواحدة.
         `;
 
         const { data, usedModel } = await callGeminiWithFallback(apiKey, selectedModel, promptText, mediaParts, btnText);
@@ -885,15 +890,26 @@
         manualCopayOverride = false;
         manualCompanyOverride = false;
 
-        const detectedCompany = normalizeCompanyName(parsed.company);
+        const detectedCompany = normalizeCompanyName(parsed.company) || selectedCompanyHint;
         if (detectedCompany) {
           document.getElementById('companySelect').value = detectedCompany;
         }
+        const finalCompany = document.getElementById('companySelect').value;
+
         if (parsed.claimDate && /^\d{4}-\d{2}-\d{2}$/.test(parsed.claimDate)) {
           document.getElementById('claimDate').value = parsed.claimDate;
         }
         if (parsed.patientName) document.getElementById('patientName').value = parsed.patientName;
-        if (parsed.ticketNo) document.getElementById('ticketNo').value = parsed.ticketNo;
+
+        // تطبيق قاعدة رقم التذكرة في AXA
+        let resolvedTicket = String(parsed.ticketNo || '').trim();
+        if (finalCompany === 'AXA') {
+          resolvedTicket = resolvedTicket ? resolvedTicket : 'chronic';
+        }
+        if (resolvedTicket) {
+          document.getElementById('ticketNo').value = resolvedTicket;
+        }
+
         if (parsed.cardNo) document.getElementById('cardNo').value = parsed.cardNo;
         if (parsed.nationalId) document.getElementById('nationalId').value = parsed.nationalId;
         if (parsed.patientPhone) document.getElementById('patientPhone').value = parsed.patientPhone;
@@ -933,7 +949,6 @@
           document.getElementById('patientPaid').value = (total * (extractedCopayPct / 100)).toFixed(2);
         }
 
-        // قراءة المطلوب من الشركة مباشرة من الورقة دون معادلة
         const extractedCompanyPaid = parseFloat(parsed.companyPaidAmount);
         if (!isNaN(extractedCompanyPaid) && extractedCompanyPaid >= 0) {
           manualCompanyOverride = true;
