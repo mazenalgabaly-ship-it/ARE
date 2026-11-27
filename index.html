@@ -232,18 +232,14 @@
           </table>
 
           <!-- تفاصيل الحساب والقيم -->
-          <div class="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
             <div>
               <label class="block font-bold mb-1">إجمالي المبلغ (ج.م)</label>
-              <input type="number" step="0.01" id="totalAmount" oninput="calculateInvoice()" class="w-full border rounded-xl p-2 font-bold bg-white">
+              <input type="number" step="0.01" id="totalAmount" class="w-full border rounded-xl p-2 font-bold bg-white">
             </div>
             <div>
-              <label class="block font-bold mb-1">تحمل المريض (%)</label>
-              <input type="number" step="0.01" id="patientCopayPercent" value="10" oninput="onCopayPercentChange()" class="w-full border rounded-xl p-2 bg-white">
-            </div>
-            <div>
-              <label class="block font-bold mb-1">تحمل المريض (ج.م)</label>
-              <input type="number" step="0.01" id="patientPaid" value="0" oninput="onCopayAmountChange()" class="w-full border rounded-xl p-2 font-bold bg-white">
+              <label class="block font-bold mb-1 text-emerald-800">تحمل المريض (ج.م)</label>
+              <input type="number" step="0.01" id="patientPaid" value="0" class="w-full border border-emerald-300 rounded-xl p-2 font-bold bg-white text-emerald-700">
             </div>
             <div>
               <label class="block font-bold mb-1">خصم (ج.م)</label>
@@ -251,7 +247,7 @@
             </div>
             <div>
               <label class="block font-bold mb-1 text-blue-800">المطلوب من الشركة (ج.م)</label>
-              <input type="number" step="0.01" id="companyPaid" value="0" oninput="onCompanyPaidChange()" class="w-full bg-white border border-blue-300 rounded-xl p-2 font-bold text-blue-700">
+              <input type="number" step="0.01" id="companyPaid" value="0" class="w-full bg-white border border-blue-300 rounded-xl p-2 font-bold text-blue-700">
             </div>
           </div>
         </div>
@@ -510,8 +506,6 @@
     let chartInstance = null;
     let activeReportCompany = null;
     let activeReportMonth = null;
-    let manualCopayOverride = false;
-    let manualCompanyOverride = false;
     let isPrintTemplatePrepared = false;
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -625,45 +619,6 @@
       let sum = 0;
       document.querySelectorAll('.med-total').forEach(input => sum += parseFloat(input.value) || 0);
       document.getElementById('totalAmount').value = sum > 0 ? sum.toFixed(2) : '';
-      calculateInvoice();
-    }
-
-    function onCopayPercentChange() {
-      manualCopayOverride = false;
-      calculateInvoice();
-    }
-
-    function onCopayAmountChange() {
-      manualCopayOverride = true;
-      const total = parseFloat(document.getElementById('totalAmount').value) || 0;
-      const patientPay = parseFloat(document.getElementById('patientPaid').value) || 0;
-      if (total > 0) {
-        document.getElementById('patientCopayPercent').value = ((patientPay / total) * 100).toFixed(2);
-      }
-      if (!manualCompanyOverride) {
-        const companyPay = Math.max(0, total - patientPay);
-        document.getElementById('companyPaid').value = companyPay.toFixed(2);
-      }
-    }
-
-    function onCompanyPaidChange() {
-      manualCompanyOverride = true;
-    }
-
-    function calculateInvoice() {
-      const total = parseFloat(document.getElementById('totalAmount').value) || 0;
-      if (!manualCopayOverride) {
-        const copayPct = parseFloat(document.getElementById('patientCopayPercent').value) || 0;
-        const patientPay = total * (copayPct / 100);
-        document.getElementById('patientPaid').value = patientPay.toFixed(2);
-      }
-      if (!manualCompanyOverride) {
-        const currentCompanyVal = parseFloat(document.getElementById('companyPaid').value);
-        if (isNaN(currentCompanyVal) || currentCompanyVal === 0) {
-          const patientPay = parseFloat(document.getElementById('patientPaid').value) || 0;
-          document.getElementById('companyPaid').value = Math.max(0, total - patientPay).toFixed(2);
-        }
-      }
     }
 
     function getInvoiceFinancials(inv) {
@@ -733,7 +688,6 @@
         discountAmount: { type: "NUMBER" },
         patientPaidAmount: { type: "NUMBER" },
         companyPaidAmount: { type: "NUMBER" },
-        patientCopayPercent: { type: "NUMBER" },
         medicines: {
           type: "ARRAY",
           items: {
@@ -847,7 +801,7 @@
         const promptText = `
           أنت مساعد صيدلي خبير في قراءة روشتات ومطالبات شركات التأمين الطبي في مصر.
           أمامك ${mediaParts.length} صفحة/صورة تابعة لنفس المطالبة أو الروشتة.
-          اقرأ جميع الصفحات من الأولى للأخيرة واستخرج كل البيانات والأدوية والمبالغ بدقة:
+          اقرأ جميع الصفحات من الأولى للأخيرة واستخرج كل البيانات والأدوية والمبالغ بدقة كما هي في الورقة:
 
           1. company: اسم شركة التأمين الموجود في الأوراق ("MetLife" أو "MedRight" أو "AXA"). (الشركة المختارة حالياً في الواجهة: "${selectedCompanyHint}").
           2. claimDate: تاريخ الروشتة أو المطالبة بصيغة YYYY-MM-DD (مثلاً "2026-11-25").
@@ -862,12 +816,11 @@
           8. approvalNo: رقم الموافقة (Approval No) إن وجد (وإلا نص فارغ "").
           9. isMonthly: true أو false (هل هي علاج شهري).
           10. discountAmount: قيمة الخصم بالجنيه المصري كما هي مكتوبة في الورقة (رقم عشري، وإلا 0).
-          11. patientPaidAmount: قيمة تحمل المريض بالجنيه المصري كما هي مكتوبة في الورقة (رقم عشري، وإلا 0).
+          11. patientPaidAmount: قيمة تحمل المريض بالفلوس (بالجنيه المصري) كما هي مكتوبة في الورقة تماماً بدون أي معادلات أو نسب مئوية (رقم عشري، وإلا 0).
           12. companyPaidAmount: قيمة "المطلوب من الشركة" بالجنيه المصري:
               - إذا كانت الشركة AXA (أكسا): استخرج القيمة حصراً من خانة (Insurer) كما هي مكتوبة في الورقة.
               - في باقي الشركات: اقرأ قيمة المطلوب من الشركة كما هي مكتوبة في الورقة دون حساب معادلات.
-          13. patientCopayPercent: نسبة تحمل المريض المئوية إن وجدت في الورقة (وإلا 0).
-          14. medicines: اجمع كل الأدوية من كل الصفحات في مصفوفة واحدة:
+          13. medicines: اجمع كل الأدوية من كل الصفحات في مصفوفة واحدة:
               - name: اسم الدواء فقط نظيفاً بدون أرقام الكمية.
               - qtyText: الكمية كما هي مكتوبة بالضبط في الورقة كنص (مثل "2" أو "2-3" أو "1 علبة").
               - price: سعر الوحدة للعلبة الواحدة.
@@ -887,9 +840,6 @@
 
         const parsed = JSON.parse(jsonMatch[0]);
 
-        manualCopayOverride = false;
-        manualCompanyOverride = false;
-
         const detectedCompany = normalizeCompanyName(parsed.company) || selectedCompanyHint;
         if (detectedCompany) {
           document.getElementById('companySelect').value = detectedCompany;
@@ -901,7 +851,6 @@
         }
         if (parsed.patientName) document.getElementById('patientName').value = parsed.patientName;
 
-        // تطبيق قاعدة رقم التذكرة في AXA
         let resolvedTicket = String(parsed.ticketNo || '').trim();
         if (finalCompany === 'AXA') {
           resolvedTicket = resolvedTicket ? resolvedTicket : 'chronic';
@@ -929,30 +878,22 @@
 
         recalculateOverallTotal();
 
-        const total = parseFloat(document.getElementById('totalAmount').value) || 0;
         if (parsed.discountAmount !== undefined && parsed.discountAmount !== null) {
           document.getElementById('pharmacyDiscountAmount').value = (parseFloat(parsed.discountAmount) || 0).toFixed(2);
         }
 
-        const extractedPatientPaid = parseFloat(parsed.patientPaidAmount) || 0;
-        const extractedCopayPct = parseFloat(parsed.patientCopayPercent);
-
-        if (extractedPatientPaid > 0) {
-          manualCopayOverride = true;
+        const extractedPatientPaid = parseFloat(parsed.patientPaidAmount);
+        if (!isNaN(extractedPatientPaid) && extractedPatientPaid >= 0) {
           document.getElementById('patientPaid').value = extractedPatientPaid.toFixed(2);
-          if (total > 0) {
-            document.getElementById('patientCopayPercent').value = ((extractedPatientPaid / total) * 100).toFixed(2);
-          }
-        } else if (!isNaN(extractedCopayPct) && extractedCopayPct > 0) {
-          manualCopayOverride = false;
-          document.getElementById('patientCopayPercent').value = extractedCopayPct;
-          document.getElementById('patientPaid').value = (total * (extractedCopayPct / 100)).toFixed(2);
+        } else {
+          document.getElementById('patientPaid').value = '0.00';
         }
 
         const extractedCompanyPaid = parseFloat(parsed.companyPaidAmount);
         if (!isNaN(extractedCompanyPaid) && extractedCompanyPaid >= 0) {
-          manualCompanyOverride = true;
           document.getElementById('companyPaid').value = extractedCompanyPaid.toFixed(2);
+        } else {
+          document.getElementById('companyPaid').value = '0.00';
         }
 
         alert(`تم استخراج البيانات من ${mediaParts.length} صفحة/صورة بنجاح باستخدام (${usedModel})!`);
@@ -988,7 +929,6 @@
         approvalNo: document.getElementById('approvalNo').value,
         isMonthly: document.getElementById('isMonthly').checked,
         totalAmount: parseFloat(document.getElementById('totalAmount').value) || 0,
-        patientCopayPercent: parseFloat(document.getElementById('patientCopayPercent').value) || 0,
         pharmacyDiscountAmount: parseFloat(document.getElementById('pharmacyDiscountAmount').value) || 0,
         patientPaid: parseFloat(document.getElementById('patientPaid').value) || 0,
         companyPaid: parseFloat(document.getElementById('companyPaid').value) || 0,
@@ -1010,16 +950,14 @@
     }
 
     function resetForm() {
-      manualCopayOverride = false;
-      manualCompanyOverride = false;
       document.getElementById('editingId').value = '';
       document.getElementById('formTitle').innerText = 'إدخال فاتورة تأمين جديدة';
       document.getElementById('claimForm').reset();
       document.getElementById('medicinesTableBody').innerHTML = '';
       document.getElementById('claimDate').valueAsDate = new Date();
       document.getElementById('pharmacyDiscountAmount').value = '0';
+      document.getElementById('patientPaid').value = '0';
       document.getElementById('companyPaid').value = '0';
-      calculateInvoice();
     }
 
     function renderRecordsTable() {
@@ -1070,7 +1008,6 @@
       document.getElementById('companySelect').value = inv.company || 'MetLife';
       document.getElementById('approvalNo').value = inv.approvalNo || '';
       document.getElementById('isMonthly').checked = Boolean(inv.isMonthly);
-      document.getElementById('patientCopayPercent').value = inv.patientCopayPercent || 0;
       document.getElementById('pharmacyDiscountAmount').value = fin.discountAmount.toFixed(2);
 
       const tbody = document.getElementById('medicinesTableBody');
@@ -1082,8 +1019,7 @@
         });
       }
 
-      manualCopayOverride = true;
-      manualCompanyOverride = true;
+      document.getElementById('totalAmount').value = fin.total.toFixed(2);
       document.getElementById('patientPaid').value = fin.patientPaid.toFixed(2);
       document.getElementById('companyPaid').value = fin.companyPaid.toFixed(2);
       switchTab('newInvoice');
