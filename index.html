@@ -211,7 +211,7 @@
           </div>
         </div>
 
-        <!-- جدول الأدوية (عمود واحد للكمية) -->
+        <!-- جدول الأدوية (عمود واحد للكمية والوحدة كما بالورقة) -->
         <div class="border-t border-slate-200 pt-4">
           <div class="flex justify-between items-center mb-3">
             <h3 class="font-bold text-sm text-slate-700">تفاصيل الأدوية الموصوفة</h3>
@@ -222,7 +222,7 @@
             <thead>
               <tr class="bg-slate-50 text-slate-700">
                 <th class="p-2.5 border">اسم الدواء</th>
-                <th class="p-2.5 border w-36 text-center">الكمية</th>
+                <th class="p-2.5 border w-44 text-center">الكمية (مثال: 2 شريط / 2 أمبول)</th>
                 <th class="p-2.5 border w-32">سعر الوحدة (ج.م)</th>
                 <th class="p-2.5 border w-32">الإجمالي (ج.م)</th>
                 <th class="p-2.5 border w-12 text-center">حذف</th>
@@ -461,7 +461,7 @@
         <tr class="bg-slate-100">
           <th class="border border-slate-400 p-2 text-right w-10">#</th>
           <th class="border border-slate-400 p-2 text-right">اسم الدواء</th>
-          <th class="border border-slate-400 p-2 text-center w-28">الكمية</th>
+          <th class="border border-slate-400 p-2 text-center w-36">الكمية</th>
           <th class="border border-slate-400 p-2 text-left w-24">السعر</th>
           <th class="border border-slate-400 p-2 text-left w-28">الإجمالي</th>
         </tr>
@@ -592,7 +592,7 @@
 
       tr.innerHTML = `
         <td class="p-1.5 border"><input type="text" class="med-name w-full p-1.5 border rounded-lg" value="${name}" placeholder="اسم الدواء"></td>
-        <td class="p-1.5 border"><input type="text" class="med-qty w-full p-1.5 border rounded-lg text-center font-semibold" value="${qtyRaw}" placeholder="الكمية كما بالورقة" oninput="updateRowTotal(this)"></td>
+        <td class="p-1.5 border"><input type="text" class="med-qty w-full p-1.5 border rounded-lg text-center font-semibold" value="${qtyRaw}" placeholder="مثال: 2 شريط / 2 أمبول" oninput="updateRowTotal(this)"></td>
         <td class="p-1.5 border"><input type="number" step="0.01" class="med-price w-full p-1.5 border rounded-lg text-left" value="${price}" oninput="updateRowTotal(this)"></td>
         <td class="p-1.5 border"><input type="number" step="0.01" class="med-total w-full p-1.5 bg-slate-100 border rounded-lg text-left font-bold" value="${rowTot}" readonly></td>
         <td class="p-1.5 border text-center"><button type="button" onclick="removeRow(this)" class="text-red-600 hover:text-red-800 font-bold px-2">✕</button></td>
@@ -821,9 +821,9 @@
               - إذا كانت الشركة AXA (أكسا): استخرج القيمة حصراً من خانة (Insurer) كما هي مكتوبة في الورقة.
               - في باقي الشركات: اقرأ قيمة المطلوب من الشركة كما هي مكتوبة في الورقة دون حساب معادلات.
           13. medicines: اجمع كل الأدوية من كل الصفحات في مصفوفة واحدة:
-              - name: اسم الدواء فقط نظيفاً بدون أرقام الكمية.
-              - qtyText: الكمية كما هي مكتوبة بالضبط في الورقة كنص (مثل "2" أو "2-3" أو "1 علبة").
-              - price: سعر الوحدة للعلبة الواحدة.
+              - name: اسم الدواء فقط نظيفاً بدون أرقام الكمية أو الوحدات.
+              - qtyText: الكمية مع وحدتها أو وصفها كما هو مكتوب بالضبط في الورقة كنص (مثل "2 شريط" أو "2 أمبول" أو "1 علبة" أو "2-3").
+              - price: سعر الوحدة للقطعة/العلبة الواحدة.
         `;
 
         const { data, usedModel } = await callGeminiWithFallback(apiKey, selectedModel, promptText, mediaParts, btnText);
