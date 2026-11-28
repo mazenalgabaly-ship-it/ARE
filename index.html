@@ -3,13 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نظام صيدلية الجبلي للتأمين الطبي v3.9</title>
+  <title>نظام صيدلية الجبلي للتأمين الطبي v4.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -26,16 +23,6 @@
     @media screen {
       #printableInvoice {
         display: none !important;
-      }
-      #printableInvoice.render-capture {
-        display: block !important;
-        position: fixed !important;
-        left: -9999px !important;
-        top: 0 !important;
-        width: 794px !important;
-        background: #ffffff !important;
-        color: #000000 !important;
-        z-index: -1 !important;
       }
     }
     @media print {
@@ -65,304 +52,284 @@
     }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 flex h-screen overflow-hidden">
+<body class="bg-slate-100 text-slate-800 h-screen overflow-hidden">
 
-  <!-- الشريط الجانبي Sidebar -->
-  <aside class="w-64 bg-slate-900 text-white flex flex-col no-print shrink-0">
-    <div class="p-5 border-b border-slate-800 flex items-center gap-3">
-      <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow"><i class="fa-solid fa-prescription-bottle-medical text-xl"></i></div>
-      <div>
-        <h1 class="font-extrabold text-base leading-tight" id="sidebarPharmName">صيدلية الجبلي</h1>
-        <p class="text-xs text-slate-400">نظام التأمين الطبي v3.9</p>
-      </div>
-    </div>
-
-    <nav class="flex-1 p-4 space-y-1.5 text-sm font-semibold">
-      <button type="button" onclick="switchTab('home')" id="nav-home" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white transition">
-        <i class="fa-solid fa-chart-pie w-5"></i> الصفحة الرئيسية
-      </button>
-      <button type="button" onclick="switchTab('newInvoice')" id="nav-newInvoice" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-file-circle-plus w-5"></i> إدخال فاتورة جديدة
-      </button>
-      <button type="button" onclick="switchTab('records')" id="nav-records" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-folder-open w-5"></i> سجل الفواتير والتعديل
-      </button>
-      <button type="button" onclick="switchTab('reports')" id="nav-reports" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-file-invoice-dollar w-5"></i> التقارير الشهرية
-      </button>
-      <button type="button" onclick="switchTab('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-gear w-5"></i> الإعدادات
-      </button>
-    </nav>
-
-    <!-- حالة الاتصال بجوجل درايف -->
-    <div class="px-4 py-3 border-t border-slate-800">
-      <div id="driveStatusBadge" class="text-xs bg-slate-800 text-slate-300 px-3 py-2 rounded-xl flex items-center justify-between">
-        <span><i class="fa-brands fa-google-drive text-slate-400 ml-1"></i> Drive غير متصل</span>
-        <button type="button" onclick="connectGoogleDrive()" class="text-blue-400 hover:text-blue-300 font-bold underline">ربط</button>
-      </div>
-    </div>
-
-    <div class="p-4 border-t border-slate-800 text-xs text-slate-400 text-center leading-relaxed" id="sidebarFooter">
-      شارع صلاح سالم - الباجور <br> س.ت: 60961 | ب.ض: 611509792
-    </div>
-  </aside>
-
-  <!-- المحتوى الرئيسي -->
-  <main class="flex-1 overflow-y-auto p-6 md:p-8 no-print">
-
-    <!-- 1. الصفحة الرئيسية (Dashboard) -->
-    <section id="page-home" class="tab-section space-y-6">
-      <div class="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-        <div>
-          <h2 class="text-xl font-extrabold text-slate-800">لوحة التحكم واستعلامات</h2>
-          <p class="text-xs text-slate-500 mt-0.5">ملخص الأداء والمطالبات الشهرية</p>
+  <!-- صفحة تسجيل الدخول (Log In) في البداية -->
+  <section id="loginScreen" class="fixed inset-0 z-50 bg-slate-900 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-8 space-y-6">
+      <div class="text-center space-y-2">
+        <div class="w-14 h-14 mx-auto bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg">
+          <i class="fa-solid fa-prescription-bottle-medical text-2xl"></i>
         </div>
-        <button type="button" onclick="switchTab('newInvoice')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center gap-2 transition">
-          <i class="fa-solid fa-plus"></i> فاتورة جديدة
+        <h1 class="text-xl font-extrabold text-slate-900">تسجيل الدخول - صيدلية الجبلي</h1>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          أدخل البريد الإلكتروني وكلمة المرور للوصول إلى الفواتير والتقارير. نفس البيانات تربط الجلسات والحسابات بنفس الهوية.
+        </p>
+      </div>
+
+      <form id="loginForm" onsubmit="event.preventDefault(); handleLoginSubmit();" class="space-y-4">
+        <div>
+          <label for="loginEmail" class="block text-xs font-bold text-slate-700 mb-1.5">البريد الإلكتروني (Email) *</label>
+          <div class="relative">
+            <input type="email" id="loginEmail" required placeholder="name@example.com" dir="ltr"
+              class="w-full border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl p-2.5 text-sm text-left">
+          </div>
+        </div>
+
+        <div>
+          <label for="loginPassword" class="block text-xs font-bold text-slate-700 mb-1.5">كلمة المرور (Password) *</label>
+          <input type="password" id="loginPassword" required placeholder="••••••••" dir="ltr"
+            class="w-full border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl p-2.5 text-sm text-left">
+        </div>
+
+        <div class="flex items-center justify-between text-xs">
+          <label class="flex items-center gap-2 text-slate-600 font-semibold cursor-pointer">
+            <input type="checkbox" id="rememberSessionCheck" checked class="w-4 h-4 text-blue-600 rounded">
+            تذكر الجلسة على هذا الجهاز
+          </label>
+          <span class="text-blue-700 font-bold">ربط موحد بالبيانات</span>
+        </div>
+
+        <p id="loginErrorMsg" class="hidden text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-xl p-2.5"></p>
+
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-3 px-4 rounded-xl text-sm shadow transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-right-to-bracket"></i> دخول إلى النظام
+        </button>
+      </form>
+
+      <div class="border-t border-slate-100 pt-4 text-center text-[11px] text-slate-400 leading-relaxed">
+        لو فتحت بنفس البريد الإلكتروني وكلمة المرور من جهاز آخر، سيتم ربطهما بنفس مساحة الحساب والبيانات.
+      </div>
+    </div>
+  </section>
+
+  <!-- التطبيق الرئيسي بعد تسجيل الدخول -->
+  <div id="appShell" class="hidden flex h-screen w-full overflow-hidden">
+
+    <!-- الشريط الجانبي Sidebar -->
+    <aside class="w-64 bg-slate-900 text-white flex flex-col no-print shrink-0">
+      <div class="p-5 border-b border-slate-800 flex items-center gap-3">
+        <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow"><i class="fa-solid fa-prescription-bottle-medical text-xl"></i></div>
+        <div>
+          <h1 class="font-extrabold text-base leading-tight" id="sidebarPharmName">صيدلية الجبلي</h1>
+          <p class="text-xs text-slate-400">نظام التأمين الطبي v4.0</p>
+        </div>
+      </div>
+
+      <div class="px-4 py-2.5 bg-slate-800/70 border-b border-slate-800 text-xs">
+        <div class="text-slate-400 text-[11px]">الحساب النشط:</div>
+        <div id="activeUserEmailBadge" class="font-bold text-blue-300 truncate mt-0.5" dir="ltr">-</div>
+      </div>
+
+      <nav class="flex-1 p-4 space-y-1.5 text-sm font-semibold">
+        <button type="button" onclick="switchTab('home')" id="nav-home" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white transition">
+          <i class="fa-solid fa-chart-pie w-5"></i> الصفحة الرئيسية
+        </button>
+        <button type="button" onclick="switchTab('newInvoice')" id="nav-newInvoice" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
+          <i class="fa-solid fa-file-circle-plus w-5"></i> إدخال فاتورة جديدة
+        </button>
+        <button type="button" onclick="switchTab('records')" id="nav-records" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
+          <i class="fa-solid fa-folder-open w-5"></i> سجل الفواتير والتعديل
+        </button>
+        <button type="button" onclick="switchTab('reports')" id="nav-reports" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
+          <i class="fa-solid fa-file-invoice-dollar w-5"></i> التقارير الشهرية
+        </button>
+        <button type="button" onclick="switchTab('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition">
+          <i class="fa-solid fa-gear w-5"></i> الإعدادات
+        </button>
+      </nav>
+
+      <div class="px-4 py-2.5 border-t border-slate-800">
+        <button type="button" onclick="logoutUser()" class="w-full bg-red-500/10 hover:bg-red-500/20 text-red-300 font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-2 transition">
+          <i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج
         </button>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <p class="text-xs font-bold text-slate-500">إجمالي المطلوب من الشركات</p>
-          <h3 class="text-2xl font-extrabold text-blue-600 mt-1.5" id="dashTotalCompany">0.00 ج.م</h3>
-        </div>
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <p class="text-xs font-bold text-slate-500">إجمالي مدفوعات المرضى</p>
-          <h3 class="text-2xl font-extrabold text-emerald-600 mt-1.5" id="dashTotalPatient">0.00 ج.م</h3>
-        </div>
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <p class="text-xs font-bold text-slate-500">عدد الفواتير المسجلة</p>
-          <h3 class="text-2xl font-extrabold text-slate-800 mt-1.5" id="dashCount">0</h3>
-        </div>
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <p class="text-xs font-bold text-slate-500">فواتير العلاج الشهري</p>
-          <h3 class="text-2xl font-extrabold text-amber-600 mt-1.5" id="dashMonthlyCount">0</h3>
-        </div>
+      <div class="p-4 border-t border-slate-800 text-xs text-slate-400 text-center leading-relaxed" id="sidebarFooter">
+        شارع صلاح سالم - الباجور <br> س.ت: 60961 | ب.ض: 611509792
       </div>
+    </aside>
 
-      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-        <h3 class="font-bold text-slate-700 mb-4">توزيع المطلوب من الشركات حسب شركة التأمين</h3>
-        <div class="h-64">
-          <canvas id="companyChart"></canvas>
-        </div>
-      </div>
-    </section>
+    <!-- المحتوى الرئيسي -->
+    <main class="flex-1 overflow-y-auto p-6 md:p-8 no-print">
 
-    <!-- 2. صفحة إدخال فاتورة جديدة -->
-    <section id="page-newInvoice" class="tab-section hidden space-y-6">
-      <div class="flex flex-wrap justify-between items-center gap-2 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-        <h2 class="text-xl font-extrabold text-slate-800" id="formTitle">إدخال فاتورة تأمين جديدة</h2>
-        <div class="flex items-center gap-2">
-          <button type="button" onclick="connectGoogleDrive()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold py-2 px-3.5 rounded-xl transition flex items-center gap-1.5">
-            <i class="fa-brands fa-google-drive"></i> <span id="topDriveBtnText">ربط Google Drive</span>
+      <!-- 1. الصفحة الرئيسية (Dashboard) -->
+      <section id="page-home" class="tab-section space-y-6">
+        <div class="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <div>
+            <h2 class="text-xl font-extrabold text-slate-800">لوحة التحكم واستعلامات</h2>
+            <p class="text-xs text-slate-500 mt-0.5">ملخص الأداء والمطالبات الشهرية</p>
+          </div>
+          <button type="button" onclick="switchTab('newInvoice')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center gap-2 transition">
+            <i class="fa-solid fa-plus"></i> فاتورة جديدة
           </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <p class="text-xs font-bold text-slate-500">إجمالي المطلوب من الشركات</p>
+            <h3 class="text-2xl font-extrabold text-blue-600 mt-1.5" id="dashTotalCompany">0.00 ج.م</h3>
+          </div>
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <p class="text-xs font-bold text-slate-500">إجمالي مدفوعات المرضى</p>
+            <h3 class="text-2xl font-extrabold text-emerald-600 mt-1.5" id="dashTotalPatient">0.00 ج.م</h3>
+          </div>
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <p class="text-xs font-bold text-slate-500">عدد الفواتير المسجلة</p>
+            <h3 class="text-2xl font-extrabold text-slate-800 mt-1.5" id="dashCount">0</h3>
+          </div>
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <p class="text-xs font-bold text-slate-500">فواتير العلاج الشهري</p>
+            <h3 class="text-2xl font-extrabold text-amber-600 mt-1.5" id="dashMonthlyCount">0</h3>
+          </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h3 class="font-bold text-slate-700 mb-4">توزيع المطلوب من الشركات حسب شركة التأمين</h3>
+          <div class="h-64">
+            <canvas id="companyChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. صفحة إدخال فاتورة جديدة -->
+      <section id="page-newInvoice" class="tab-section hidden space-y-6">
+        <div class="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+          <h2 class="text-xl font-extrabold text-slate-800" id="formTitle">إدخال فاتورة تأمين جديدة</h2>
           <button type="button" onclick="resetForm()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-3.5 rounded-xl transition">إعادة ضبط النموذج</button>
         </div>
-      </div>
 
-      <!-- القراءة الذكية بواسطة Gemini AI -->
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-        <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-blue-600"></i> القراءة الذكية للروشتة (Gemini AI - يدعم عدة صفحات PDF أو صور)</h3>
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">شركة التأمين (تلقائي / يدوي)</label>
-            <select id="companySelect" onchange="toggleMedrightFields()" class="w-full border border-slate-300 rounded-xl p-2 text-sm">
-              <option value="MetLife">ميتلايف (MetLife)</option>
-              <option value="MedRight">ميدرايت (MedRight)</option>
-              <option value="AXA">أكسا (AXA)</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">إصدار الموديل (Model)</label>
-            <select id="modelSelect" class="w-full border border-slate-300 rounded-xl p-2 text-sm bg-blue-50 font-bold text-blue-900">
-              <option value="gemini-3.8-flash" selected>gemini-3.8-flash</option>
-              <option value="gemini-4-hydrogen">gemini-4-hydrogen</option>
-              <option value="gemini-3.6-flash">gemini-3.6-flash</option>
-              <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">مفتاح API Key</label>
-            <input type="password" id="apiKeyInput" placeholder="أدخل المفتاح هنا..." class="w-full border border-slate-300 rounded-xl p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">ملفات الروشتة (PDF متعدد أو صور)</label>
-            <input type="file" id="pdfFileInput" accept="image/*,application/pdf" multiple class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
-          </div>
-          <div class="flex items-end">
-            <button type="button" onclick="processPDFWithAI()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl text-sm flex items-center justify-center gap-2 transition">
-              <span id="btnText"><i class="fa-solid fa-brain"></i> استخراج البيانات</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- إدخال البيانات والتعديل -->
-      <form id="claimForm" onsubmit="event.preventDefault(); saveRecord();" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-        <input type="hidden" id="editingId" value="">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">اسم المريض *</label>
-            <input type="text" id="patientName" required class="w-full border border-slate-300 rounded-xl p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">رقم التذكرة / المطالبة *</label>
-            <input type="text" id="ticketNo" required class="w-full border border-slate-300 rounded-xl p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">رقم الكارنيه *</label>
-            <input type="text" id="cardNo" required class="w-full border border-slate-300 rounded-xl p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">الرقم القومي</label>
-            <input type="text" id="nationalId" class="w-full border border-slate-300 rounded-xl p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">رقم الهاتف</label>
-            <input type="text" id="patientPhone" class="w-full border border-slate-300 rounded-xl p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">التاريخ</label>
-            <input type="date" id="claimDate" required class="w-full border border-slate-300 rounded-xl p-2 text-sm">
-          </div>
-          <div id="medrightApprovalDiv">
-            <label class="block text-xs font-bold mb-1 text-purple-700">رقم الموافقة</label>
-            <input type="text" id="approvalNo" placeholder="رقم الموافقة إن وجد..." class="w-full border border-purple-300 bg-purple-50 rounded-xl p-2 text-sm">
-          </div>
-          <div class="flex items-center gap-2 mt-6">
-            <input type="checkbox" id="isMonthly" class="w-4 h-4 text-blue-600 rounded">
-            <label for="isMonthly" class="text-xs font-bold text-amber-700">علاج شهري مكرر</label>
-          </div>
-        </div>
-
-        <!-- جدول الأدوية -->
-        <div class="border-t border-slate-200 pt-4">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-bold text-sm text-slate-700">تفاصيل الأدوية الموصوفة</h3>
-            <button type="button" onclick="addMedicineRow()" class="bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold py-1.5 px-3 rounded-xl transition">+ إضافة دواء يدوي</button>
-          </div>
-          
-          <table class="w-full text-xs text-right border-collapse border border-slate-200 mb-4">
-            <thead>
-              <tr class="bg-slate-50 text-slate-700">
-                <th class="p-2.5 border">اسم الدواء</th>
-                <th class="p-2.5 border w-44 text-center">الكمية (مثال: 2 شريط / 2 أمبول)</th>
-                <th class="p-2.5 border w-32">سعر الوحدة (ج.م)</th>
-                <th class="p-2.5 border w-32">الإجمالي (ج.م)</th>
-                <th class="p-2.5 border w-12 text-center">حذف</th>
-              </tr>
-            </thead>
-            <tbody id="medicinesTableBody"></tbody>
-          </table>
-
-          <!-- تفاصيل الحساب والقيم -->
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+        <!-- القراءة الذكية بواسطة Gemini AI -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+          <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-blue-600"></i> القراءة الذكية للروشتة (Gemini AI - يدعم عدة صفحات PDF أو صور)</h3>
+          <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
-              <label class="block font-bold mb-1">إجمالي المبلغ (ج.م)</label>
-              <input type="number" step="0.01" id="totalAmount" class="w-full border rounded-xl p-2 font-bold bg-white">
+              <label class="block text-xs font-bold text-slate-600 mb-1">شركة التأمين (تلقائي / يدوي)</label>
+              <select id="companySelect" onchange="toggleMedrightFields()" class="w-full border border-slate-300 rounded-xl p-2 text-sm">
+                <option value="MetLife">ميتلايف (MetLife)</option>
+                <option value="MedRight">ميدرايت (MedRight)</option>
+                <option value="AXA">أكسا (AXA)</option>
+              </select>
             </div>
             <div>
-              <label class="block font-bold mb-1 text-emerald-800">تحمل المريض (ج.م)</label>
-              <input type="number" step="0.01" id="patientPaid" value="0" class="w-full border border-emerald-300 rounded-xl p-2 font-bold bg-white text-emerald-700">
+              <label class="block text-xs font-bold text-slate-600 mb-1">إصدار الموديل (Model)</label>
+              <select id="modelSelect" class="w-full border border-slate-300 rounded-xl p-2 text-sm bg-blue-50 font-bold text-blue-900">
+                <option value="gemini-3.8-flash" selected>gemini-3.8-flash</option>
+                <option value="gemini-4-hydrogen">gemini-4-hydrogen</option>
+                <option value="gemini-3.6-flash">gemini-3.6-flash</option>
+                <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option>
+              </select>
             </div>
             <div>
-              <label class="block font-bold mb-1">خصم (ج.م)</label>
-              <input type="number" step="0.01" id="pharmacyDiscountAmount" value="0" class="w-full border rounded-xl p-2 font-bold bg-white text-amber-800">
+              <label class="block text-xs font-bold text-slate-600 mb-1">مفتاح API Key</label>
+              <input type="password" id="apiKeyInput" placeholder="أدخل المفتاح هنا..." class="w-full border border-slate-300 rounded-xl p-2 text-sm">
             </div>
             <div>
-              <label class="block font-bold mb-1 text-blue-800">المطلوب من الشركة (ج.م)</label>
-              <input type="number" step="0.01" id="companyPaid" value="0" class="w-full bg-white border border-blue-300 rounded-xl p-2 font-bold text-blue-700">
+              <label class="block text-xs font-bold text-slate-600 mb-1">ملفات الروشتة (PDF متعدد أو صور)</label>
+              <input type="file" id="pdfFileInput" accept="image/*,application/pdf" multiple class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
+            </div>
+            <div class="flex items-end">
+              <button type="button" onclick="processPDFWithAI()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl text-sm flex items-center justify-center gap-2 transition">
+                <span id="btnText"><i class="fa-solid fa-brain"></i> استخراج البيانات</span>
+              </button>
             </div>
           </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-3">
-          <button type="submit" id="saveSubmitBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition flex items-center gap-2">
-            <i class="fa-solid fa-floppy-disk"></i> <span id="saveBtnText">حفظ الفاتورة + نسخة Drive</span>
-          </button>
-          <button type="button" onclick="printCurrentForm()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition"><i class="fa-solid fa-print"></i> معاينة وطباعة</button>
-          <label class="flex items-center gap-2 text-xs font-bold text-slate-600 mr-2 cursor-pointer">
-            <input type="checkbox" id="autoUploadDriveCheck" checked class="w-4 h-4 text-blue-600 rounded">
-            رفع نسخة PDF للطباعة تلقائياً على Google Drive عند الحفظ
-          </label>
-        </div>
-      </form>
-    </section>
+        <!-- إدخال البيانات والتعديل -->
+        <form id="claimForm" onsubmit="event.preventDefault(); saveRecord();" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+          <input type="hidden" id="editingId" value="">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">اسم المريض *</label>
+              <input type="text" id="patientName" required class="w-full border border-slate-300 rounded-xl p-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">رقم التذكرة / المطالبة *</label>
+              <input type="text" id="ticketNo" required class="w-full border border-slate-300 rounded-xl p-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">رقم الكارنيه *</label>
+              <input type="text" id="cardNo" required class="w-full border border-slate-300 rounded-xl p-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">الرقم القومي</label>
+              <input type="text" id="nationalId" class="w-full border border-slate-300 rounded-xl p-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">رقم الهاتف</label>
+              <input type="text" id="patientPhone" class="w-full border border-slate-300 rounded-xl p-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">التاريخ</label>
+              <input type="date" id="claimDate" required class="w-full border border-slate-300 rounded-xl p-2 text-sm">
+            </div>
+            <div id="medrightApprovalDiv">
+              <label class="block text-xs font-bold mb-1 text-purple-700">رقم الموافقة</label>
+              <input type="text" id="approvalNo" placeholder="رقم الموافقة إن وجد..." class="w-full border border-purple-300 bg-purple-50 rounded-xl p-2 text-sm">
+            </div>
+            <div class="flex items-center gap-2 mt-6">
+              <input type="checkbox" id="isMonthly" class="w-4 h-4 text-blue-600 rounded">
+              <label for="isMonthly" class="text-xs font-bold text-amber-700">علاج شهري مكرر</label>
+            </div>
+          </div>
 
-    <!-- 3. صفحة سجل الفواتير والتعديل -->
-    <section id="page-records" class="tab-section hidden space-y-6">
-      <div class="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-        <div>
-          <h2 class="text-xl font-extrabold text-slate-800">سجل الفواتير المحفوظة</h2>
-          <p class="text-xs text-slate-500 mt-0.5">عرض، تعديل، طباعة، أو رفع نسخة PDF إلى Google Drive</p>
-        </div>
-        <input type="text" id="searchRecordInput" onkeyup="filterRecords()" placeholder="بحث باسم المريض أو الكارنيه..." class="border border-slate-300 rounded-xl px-3.5 py-2 text-xs w-full sm:w-72">
-      </div>
+          <!-- جدول الأدوية -->
+          <div class="border-t border-slate-200 pt-4">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="font-bold text-sm text-slate-700">تفاصيل الأدوية الموصوفة</h3>
+              <button type="button" onclick="addMedicineRow()" class="bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold py-1.5 px-3 rounded-xl transition">+ إضافة دواء يدوي</button>
+            </div>
+            
+            <table class="w-full text-xs text-right border-collapse border border-slate-200 mb-4">
+              <thead>
+                <tr class="bg-slate-50 text-slate-700">
+                  <th class="p-2.5 border">اسم الدواء</th>
+                  <th class="p-2.5 border w-44 text-center">الكمية (مثال: 2 شريط / 2 أمبول)</th>
+                  <th class="p-2.5 border w-32">سعر الوحدة (ج.م)</th>
+                  <th class="p-2.5 border w-32">الإجمالي (ج.م)</th>
+                  <th class="p-2.5 border w-12 text-center">حذف</th>
+                </tr>
+              </thead>
+              <tbody id="medicinesTableBody"></tbody>
+            </table>
 
-      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs text-right border-collapse">
-            <thead>
-              <tr class="bg-slate-50 border-b text-slate-600">
-                <th class="p-3">التاريخ</th>
-                <th class="p-3">المريض</th>
-                <th class="p-3">الشركة</th>
-                <th class="p-3">رقم التذكرة</th>
-                <th class="p-3">الإجمالي</th>
-                <th class="p-3">المطلوب من الشركة</th>
-                <th class="p-3">تحمل المريض</th>
-                <th class="p-3 text-center">Google Drive</th>
-                <th class="p-3 text-center">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody id="fullRecordsTableBody" class="divide-y divide-slate-100"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+            <!-- تفاصيل الحساب والقيم -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <label class="block font-bold mb-1">إجمالي المبلغ (ج.م)</label>
+                <input type="number" step="0.01" id="totalAmount" class="w-full border rounded-xl p-2 font-bold bg-white">
+              </div>
+              <div>
+                <label class="block font-bold mb-1 text-emerald-800">تحمل المريض (ج.م)</label>
+                <input type="number" step="0.01" id="patientPaid" value="0" class="w-full border border-emerald-300 rounded-xl p-2 font-bold bg-white text-emerald-700">
+              </div>
+              <div>
+                <label class="block font-bold mb-1">خصم (ج.م)</label>
+                <input type="number" step="0.01" id="pharmacyDiscountAmount" value="0" class="w-full border rounded-xl p-2 font-bold bg-white text-amber-800">
+              </div>
+              <div>
+                <label class="block font-bold mb-1 text-blue-800">المطلوب من الشركة (ج.م)</label>
+                <input type="number" step="0.01" id="companyPaid" value="0" class="w-full bg-white border border-blue-300 rounded-xl p-2 font-bold text-blue-700">
+              </div>
+            </div>
+          </div>
 
-    <!-- 4. صفحة التقارير الشهرية واستعراض مطالبات الشركات -->
-    <section id="page-reports" class="tab-section hidden space-y-6">
-      <div id="reportsOverviewView" class="space-y-6">
+          <div class="flex flex-wrap gap-3">
+            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition"><i class="fa-solid fa-floppy-disk"></i> حفظ الفاتورة</button>
+            <button type="button" onclick="printCurrentForm()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition"><i class="fa-solid fa-print"></i> معاينة وطباعة</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- 3. صفحة سجل الفواتير والتعديل -->
+      <section id="page-records" class="tab-section hidden space-y-6">
         <div class="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <div>
-            <h2 class="text-xl font-extrabold text-slate-800">التقارير الشهرية لشركات التأمين</h2>
-            <p class="text-xs text-slate-500 mt-0.5">اختر الشهر واضغط على أي شركة للدخول إلى مطالباتها</p>
+            <h2 class="text-xl font-extrabold text-slate-800">سجل الفواتير المحفوظة</h2>
+            <p class="text-xs text-slate-500 mt-0.5">عرض، تعديل، طباعة، أو حذف أي فاتورة</p>
           </div>
-          <div class="flex items-center gap-2">
-            <label for="reportMonthFilter" class="text-xs font-bold text-slate-600">الشهر:</label>
-            <select id="reportMonthFilter" onchange="renderReports()" class="border border-slate-300 bg-slate-50 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800"></select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="companyReportsGrid"></div>
-      </div>
-
-      <div id="companyDetailReportView" class="hidden space-y-5">
-        <div class="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <div class="flex items-center gap-3">
-            <button type="button" onclick="backToReportsOverview()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition">
-              <i class="fa-solid fa-arrow-right"></i> رجوع للشركات
-            </button>
-            <div>
-              <h2 class="text-lg font-extrabold text-slate-800" id="detailReportCompanyTitle">مطالبات الشركة</h2>
-              <p class="text-xs text-slate-500" id="detailReportMonthLabel"></p>
-            </div>
-          </div>
-          <div id="detailReportSummaryBadges" class="flex flex-wrap gap-2 text-xs font-bold"></div>
-        </div>
-
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <input type="text" id="detailSearchInput" oninput="renderCompanyDetailTable()" placeholder="بحث باسم المريض أو رقم الكارنيه..." class="border border-slate-300 rounded-xl px-3 py-2 text-xs">
-          <input type="date" id="detailDateFilter" onchange="renderCompanyDetailTable()" class="border border-slate-300 rounded-xl px-3 py-2 text-xs">
-          <select id="detailSortSelect" onchange="renderCompanyDetailTable()" class="border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold">
-            <option value="date-desc">ترتيب: الأحدث تاريخاً</option>
-            <option value="date-asc">ترتيب: الأقدم تاريخاً</option>
-            <option value="amount-desc">ترتيب: الأعلى قيمة</option>
-            <option value="amount-asc">ترتيب: الأقل قيمة</option>
-          </select>
+          <input type="text" id="searchRecordInput" onkeyup="filterRecords()" placeholder="بحث باسم المريض أو الكارنيه..." class="border border-slate-300 rounded-xl px-3.5 py-2 text-xs w-full sm:w-72">
         </div>
 
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -370,90 +337,136 @@
             <table class="w-full text-xs text-right border-collapse">
               <thead>
                 <tr class="bg-slate-50 border-b text-slate-600">
-                  <th class="p-3">المريض</th>
-                  <th class="p-3">رقم الكارنيه</th>
-                  <th class="p-3">الهاتف</th>
                   <th class="p-3">التاريخ</th>
-                  <th class="p-3">الأدوية</th>
+                  <th class="p-3">المريض</th>
+                  <th class="p-3">الشركة</th>
+                  <th class="p-3">رقم التذكرة</th>
                   <th class="p-3">الإجمالي</th>
-                  <th class="p-3">خصم (ج.م)</th>
-                  <th class="p-3">تحمل المريض</th>
                   <th class="p-3">المطلوب من الشركة</th>
-                  <th class="p-3">صافي الربح</th>
+                  <th class="p-3">تحمل المريض</th>
+                  <th class="p-3 text-center">إجراءات</th>
                 </tr>
               </thead>
-              <tbody id="companyDetailTableBody" class="divide-y divide-slate-100"></tbody>
+              <tbody id="fullRecordsTableBody" class="divide-y divide-slate-100"></tbody>
             </table>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- 5. صفحة الإعدادات -->
-    <section id="page-settings" class="tab-section hidden space-y-6">
-      <h2 class="text-xl font-extrabold text-slate-800">إعدادات النظام والبيانات الضريبية والربط السحابي</h2>
+      <!-- 4. صفحة التقارير الشهرية واستعراض مطالبات الشركات -->
+      <section id="page-reports" class="tab-section hidden space-y-6">
+        <div id="reportsOverviewView" class="space-y-6">
+          <div class="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div>
+              <h2 class="text-xl font-extrabold text-slate-800">التقارير الشهرية لشركات التأمين</h2>
+              <p class="text-xs text-slate-500 mt-0.5">اختر الشهر واضغط على أي شركة للدخول إلى مطالباتها</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <label for="reportMonthFilter" class="text-xs font-bold text-slate-600">الشهر:</label>
+              <select id="reportMonthFilter" onchange="renderReports()" class="border border-slate-300 bg-slate-50 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800"></select>
+            </div>
+          </div>
 
-      <form id="settingsForm" onsubmit="event.preventDefault(); saveSettings();" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4 max-w-2xl">
-        <div>
-          <label class="block text-xs font-bold mb-1">اسم الصيدلية</label>
-          <input type="text" id="settingPharmacyName" class="w-full border rounded-xl p-2 text-sm">
-        </div>
-        <div>
-          <label class="block text-xs font-bold mb-1">العنوان</label>
-          <input type="text" id="settingAddress" class="w-full border rounded-xl p-2 text-sm">
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-bold mb-1">السجل التجاري</label>
-            <input type="text" id="settingCommReg" class="w-full border rounded-xl p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-bold mb-1">التسجيل الضريبي</label>
-            <input type="text" id="settingTaxReg" class="w-full border rounded-xl p-2 text-sm">
-          </div>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="block text-xs font-bold mb-1">رقم الأرضي</label>
-            <input type="text" id="settingLandline" placeholder="048xxxxxxx" class="w-full border rounded-xl p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-bold mb-1">رقم الموبايل</label>
-            <input type="text" id="settingMobile" placeholder="01xxxxxxxxx" class="w-full border rounded-xl p-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-bold mb-1">البريد الإلكتروني (Email)</label>
-            <input type="email" id="settingEmail" placeholder="pharmacy@example.com" class="w-full border rounded-xl p-2 text-sm">
-          </div>
-        </div>
-        <div>
-          <label class="block text-xs font-bold mb-1">مفتاح Gemini API Key (افتراضي)</label>
-          <input type="password" id="settingApiKey" class="w-full border rounded-xl p-2 text-sm">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="companyReportsGrid"></div>
         </div>
 
-        <div class="border-t border-slate-200 pt-4 space-y-3">
-          <h3 class="font-bold text-sm text-blue-800 flex items-center gap-2"><i class="fa-brands fa-google-drive"></i> إعدادات Google Drive لحفظ نسخ الطباعة</h3>
-          <div>
-            <label class="block text-xs font-bold mb-1">Google OAuth Client ID *</label>
-            <input type="text" id="settingGoogleClientId" placeholder="xxxxxxxxxxxx-xxxxxxxxxxxxxxxx.apps.googleusercontent.com" class="w-full border border-blue-200 bg-blue-50/40 rounded-xl p-2 text-sm" dir="ltr">
+        <div id="companyDetailReportView" class="hidden space-y-5">
+          <div class="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex items-center gap-3">
+              <button type="button" onclick="backToReportsOverview()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-arrow-right"></i> رجوع للشركات
+              </button>
+              <div>
+                <h2 class="text-lg font-extrabold text-slate-800" id="detailReportCompanyTitle">مطالبات الشركة</h2>
+                <p class="text-xs text-slate-500" id="detailReportMonthLabel"></p>
+              </div>
+            </div>
+            <div id="detailReportSummaryBadges" class="flex flex-wrap gap-2 text-xs font-bold"></div>
           </div>
-          <div>
-            <label class="block text-xs font-bold mb-1">معرف المجلد في Google Drive (Folder ID - اختياري)</label>
-            <input type="text" id="settingDriveFolderId" placeholder="اتركه فارغاً لإنشاء مجلد تلقائي باسم (فواتير التأمين - صيدلية الجبلي)" class="w-full border rounded-xl p-2 text-sm" dir="ltr">
+
+          <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <input type="text" id="detailSearchInput" oninput="renderCompanyDetailTable()" placeholder="بحث باسم المريض أو رقم الكارنيه..." class="border border-slate-300 rounded-xl px-3 py-2 text-xs">
+            <input type="date" id="detailDateFilter" onchange="renderCompanyDetailTable()" class="border border-slate-300 rounded-xl px-3 py-2 text-xs">
+            <select id="detailSortSelect" onchange="renderCompanyDetailTable()" class="border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold">
+              <option value="date-desc">ترتيب: الأحدث تاريخاً</option>
+              <option value="date-asc">ترتيب: الأقدم تاريخاً</option>
+              <option value="amount-desc">ترتيب: الأعلى قيمة</option>
+              <option value="amount-asc">ترتيب: الأقل قيمة</option>
+            </select>
           </div>
-          <div class="flex items-center gap-3 pt-1">
-            <button type="button" onclick="connectGoogleDrive()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-2 transition">
-              <i class="fa-brands fa-google-drive"></i> ربط / تسجيل الدخول إلى Google Drive
-            </button>
-            <span id="settingsDriveStatus" class="text-xs font-bold text-slate-500">غير متصل</span>
+
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs text-right border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 border-b text-slate-600">
+                    <th class="p-3">المريض</th>
+                    <th class="p-3">رقم الكارنيه</th>
+                    <th class="p-3">الهاتف</th>
+                    <th class="p-3">التاريخ</th>
+                    <th class="p-3">الأدوية</th>
+                    <th class="p-3">الإجمالي</th>
+                    <th class="p-3">خصم (ج.م)</th>
+                    <th class="p-3">تحمل المريض</th>
+                    <th class="p-3">المطلوب من الشركة</th>
+                    <th class="p-3">صافي الربح</th>
+                  </tr>
+                </thead>
+                <tbody id="companyDetailTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
           </div>
         </div>
+      </section>
 
-        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition">حفظ الإعدادات</button>
-      </form>
-    </section>
+      <!-- 5. صفحة الإعدادات -->
+      <section id="page-settings" class="tab-section hidden space-y-6">
+        <h2 class="text-xl font-extrabold text-slate-800">إعدادات النظام والبيانات الضريبية</h2>
 
-  </main>
+        <form id="settingsForm" onsubmit="event.preventDefault(); saveSettings();" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4 max-w-2xl">
+          <div>
+            <label class="block text-xs font-bold mb-1">اسم الصيدلية</label>
+            <input type="text" id="settingPharmacyName" class="w-full border rounded-xl p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-bold mb-1">العنوان</label>
+            <input type="text" id="settingAddress" class="w-full border rounded-xl p-2 text-sm">
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold mb-1">السجل التجاري</label>
+              <input type="text" id="settingCommReg" class="w-full border rounded-xl p-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-bold mb-1">التسجيل الضريبي</label>
+              <input type="text" id="settingTaxReg" class="w-full border rounded-xl p-2 text-sm">
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-bold mb-1">رقم الأرضي</label>
+              <input type="text" id="settingLandline" placeholder="048xxxxxxx" class="w-full border rounded-xl p-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-bold mb-1">رقم الموبايل</label>
+              <input type="text" id="settingMobile" placeholder="01xxxxxxxxx" class="w-full border rounded-xl p-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-bold mb-1">البريد الإلكتروني (Email)</label>
+              <input type="email" id="settingEmail" placeholder="pharmacy@example.com" class="w-full border rounded-xl p-2 text-sm">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold mb-1">مفتاح Gemini API Key (افتراضي)</label>
+            <input type="password" id="settingApiKey" class="w-full border rounded-xl p-2 text-sm">
+          </div>
+
+          <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition">حفظ الإعدادات</button>
+        </form>
+      </section>
+
+    </main>
+  </div>
 
   <!-- نافذة تفاصيل المطالبة الكاملة -->
   <div id="claimDetailsModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden items-center justify-center p-4 no-print">
@@ -472,9 +485,6 @@
         <div class="flex gap-2">
           <button type="button" id="modalPrintBtn" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5">
             <i class="fa-solid fa-print"></i> طباعة
-          </button>
-          <button type="button" id="modalDriveUploadBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5">
-            <i class="fa-brands fa-google-drive"></i> حفظ نسخة على Drive
           </button>
           <button type="button" id="modalEditBtn" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5">
             <i class="fa-solid fa-pen-to-square"></i> تعديل
@@ -540,41 +550,168 @@
     const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
     const FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-4-hydrogen', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
     const GEMINI_API_VERSION = 'v1beta';
-    const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-    const DEFAULT_DRIVE_FOLDER_NAME = 'فواتير التأمين - صيدلية الجبلي';
+    const ACTIVE_SESSION_KEY = 'pharmacy_active_session_v1';
+    const ACCOUNTS_REGISTRY_KEY = 'pharmacy_accounts_v1';
 
     if (window.pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
 
-    let invoices = JSON.parse(localStorage.getItem('pharmacy_invoices_v2')) || [];
-    let settings = JSON.parse(localStorage.getItem('pharmacy_settings_v2')) || {
-      pharmacyName: 'صيدلية الجبلي',
-      address: 'شارع صلاح سالم - الباجور - المنوفية',
-      commReg: '60961',
-      taxReg: '611509792',
-      landline: '',
-      mobile: '',
-      email: '',
-      apiKey: '',
-      googleClientId: '',
-      driveFolderId: ''
-    };
+    function getDefaultSettings() {
+      return {
+        pharmacyName: 'صيدلية الجبلي',
+        address: 'شارع صلاح سالم - الباجور - المنوفية',
+        commReg: '60961',
+        taxReg: '611509792',
+        landline: '',
+        mobile: '',
+        email: '',
+        apiKey: ''
+      };
+    }
+
+    function computeCredentialKey(email, password) {
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      const rawCombo = `${normalizedEmail}::${String(password || '')}`;
+      let hash = 2166136261;
+      for (let i = 0; i < rawCombo.length; i++) {
+        hash ^= rawCombo.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return 'acc_' + (hash >>> 0).toString(16);
+    }
+
+    function getInvoicesStorageKey(accountKey) {
+      return `pharmacy_invoices_${accountKey}`;
+    }
+
+    function getSettingsStorageKey(accountKey) {
+      return `pharmacy_settings_${accountKey}`;
+    }
+
+    let currentAccountKey = null;
+    let currentUserEmail = '';
+    let invoices = [];
+    let settings = getDefaultSettings();
 
     let chartInstance = null;
     let activeReportCompany = null;
     let activeReportMonth = null;
     let isPrintTemplatePrepared = false;
-    let googleAccessToken = null;
-    let googleTokenExpiry = 0;
 
-    document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('claimDate').valueAsDate = new Date();
+    function loadAccountData(accountKey, email) {
+      currentAccountKey = accountKey;
+      currentUserEmail = email;
+
+      const invRaw = localStorage.getItem(getInvoicesStorageKey(accountKey));
+      if (invRaw) {
+        invoices = JSON.parse(invRaw) || [];
+      } else {
+        const legacyInv = localStorage.getItem('pharmacy_invoices_v2');
+        invoices = legacyInv ? (JSON.parse(legacyInv) || []) : [];
+        localStorage.setItem(getInvoicesStorageKey(accountKey), JSON.stringify(invoices));
+      }
+
+      const setRaw = localStorage.getItem(getSettingsStorageKey(accountKey));
+      if (setRaw) {
+        settings = { ...getDefaultSettings(), ...(JSON.parse(setRaw) || {}) };
+      } else {
+        const legacySet = localStorage.getItem('pharmacy_settings_v2');
+        settings = { ...getDefaultSettings(), ...(legacySet ? (JSON.parse(legacySet) || {}) : {}) };
+        localStorage.setItem(getSettingsStorageKey(accountKey), JSON.stringify(settings));
+      }
+
+      if (!settings.email) {
+        settings.email = email;
+      }
+
+      document.getElementById('activeUserEmailBadge').innerText = email;
       applySettingsToUI();
       toggleMedrightFields();
       populateReportMonths();
       renderDashboard();
-      updateDriveStatusUI();
+      renderRecordsTable();
+    }
+
+    function handleLoginSubmit() {
+      const emailInput = document.getElementById('loginEmail');
+      const passInput = document.getElementById('loginPassword');
+      const errEl = document.getElementById('loginErrorMsg');
+      const remember = document.getElementById('rememberSessionCheck').checked;
+
+      const email = emailInput.value.trim().toLowerCase();
+      const password = passInput.value;
+
+      if (!email || !password) {
+        errEl.innerText = 'يرجى إدخال البريد الإلكتروني وكلمة المرور.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      errEl.classList.add('hidden');
+      const accountKey = computeCredentialKey(email, password);
+
+      let accounts = {};
+      try {
+        accounts = JSON.parse(localStorage.getItem(ACCOUNTS_REGISTRY_KEY)) || {};
+      } catch (e) {
+        accounts = {};
+      }
+
+      accounts[accountKey] = {
+        accountKey,
+        email,
+        lastLoginAt: new Date().toISOString()
+      };
+      localStorage.setItem(ACCOUNTS_REGISTRY_KEY, JSON.stringify(accounts));
+
+      const sessionObj = { accountKey, email };
+      sessionStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(sessionObj));
+      if (remember) {
+        localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(sessionObj));
+      } else {
+        localStorage.removeItem(ACTIVE_SESSION_KEY);
+      }
+
+      loadAccountData(accountKey, email);
+      showMainApp();
+    }
+
+    function logoutUser() {
+      sessionStorage.removeItem(ACTIVE_SESSION_KEY);
+      localStorage.removeItem(ACTIVE_SESSION_KEY);
+      currentAccountKey = null;
+      currentUserEmail = '';
+      document.getElementById('loginPassword').value = '';
+      document.getElementById('appShell').classList.add('hidden');
+      document.getElementById('loginScreen').classList.remove('hidden');
+    }
+
+    function showMainApp() {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('appShell').classList.remove('hidden');
+      switchTab('home');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('claimDate').valueAsDate = new Date();
+
+      let savedSession = null;
+      try {
+        savedSession = JSON.parse(sessionStorage.getItem(ACTIVE_SESSION_KEY)) ||
+                       JSON.parse(localStorage.getItem(ACTIVE_SESSION_KEY));
+      } catch (e) {
+        savedSession = null;
+      }
+
+      if (savedSession && savedSession.accountKey && savedSession.email) {
+        document.getElementById('loginEmail').value = savedSession.email;
+        loadAccountData(savedSession.accountKey, savedSession.email);
+        showMainApp();
+      } else {
+        document.getElementById('loginScreen').classList.remove('hidden');
+        document.getElementById('appShell').classList.add('hidden');
+      }
     });
 
     function applySettingsToUI() {
@@ -584,10 +721,8 @@
       document.getElementById('settingTaxReg').value = settings.taxReg || '';
       document.getElementById('settingLandline').value = settings.landline || '';
       document.getElementById('settingMobile').value = settings.mobile || '';
-      document.getElementById('settingEmail').value = settings.email || '';
+      document.getElementById('settingEmail').value = settings.email || currentUserEmail || '';
       document.getElementById('settingApiKey').value = settings.apiKey || '';
-      document.getElementById('settingGoogleClientId').value = settings.googleClientId || '';
-      document.getElementById('settingDriveFolderId').value = settings.driveFolderId || '';
       if (settings.apiKey) document.getElementById('apiKeyInput').value = settings.apiKey;
 
       document.getElementById('sidebarPharmName').innerText = settings.pharmacyName || 'صيدلية الجبلي';
@@ -597,214 +732,6 @@
       document.getElementById('sidebarFooter').innerHTML =
         `${settings.address || 'شارع صلاح سالم - الباجور'} <br> س.ت: ${settings.commReg || '60961'} | ب.ض: ${settings.taxReg || '611509792'}` +
         (contactParts.length ? `<br>${contactParts.join(' | ')}` : '');
-    }
-
-    function isDriveConnected() {
-      return Boolean(googleAccessToken && Date.now() < googleTokenExpiry);
-    }
-
-    function updateDriveStatusUI() {
-      const sideBadge = document.getElementById('driveStatusBadge');
-      const topBtnText = document.getElementById('topDriveBtnText');
-      const settingsStatus = document.getElementById('settingsDriveStatus');
-
-      if (isDriveConnected()) {
-        if (sideBadge) {
-          sideBadge.innerHTML = `<span class="text-emerald-400 font-bold"><i class="fa-brands fa-google-drive ml-1"></i> Drive متصل</span><span class="text-[10px] text-slate-400">نشط</span>`;
-        }
-        if (topBtnText) topBtnText.innerText = 'Drive متصل ✓';
-        if (settingsStatus) {
-          settingsStatus.innerText = 'متصل بنجاح ✓';
-          settingsStatus.className = 'text-xs font-bold text-emerald-600';
-        }
-      } else {
-        if (sideBadge) {
-          sideBadge.innerHTML = `<span><i class="fa-brands fa-google-drive text-slate-400 ml-1"></i> Drive غير متصل</span><button type="button" onclick="connectGoogleDrive()" class="text-blue-400 hover:text-blue-300 font-bold underline">ربط</button>`;
-        }
-        if (topBtnText) topBtnText.innerText = 'ربط Google Drive';
-        if (settingsStatus) {
-          settingsStatus.innerText = 'غير متصل';
-          settingsStatus.className = 'text-xs font-bold text-slate-500';
-        }
-      }
-    }
-
-    function connectGoogleDrive() {
-      return new Promise((resolve, reject) => {
-        const clientId = (document.getElementById('settingGoogleClientId')?.value || settings.googleClientId || '').trim();
-        if (!clientId) {
-          alert('يرجى إدخال Google OAuth Client ID أولاً في صفحة الإعدادات ثم حفظ الإعدادات.');
-          switchTab('settings');
-          reject(new Error('Missing Google Client ID'));
-          return;
-        }
-        if (!window.google || !google.accounts || !google.accounts.oauth2) {
-          alert('مكتبة تسجيل الدخول من Google قيد التحميل أو لا يوجد اتصال بالإنترنت.');
-          reject(new Error('Google Identity Services not loaded'));
-          return;
-        }
-
-        const tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: clientId,
-          scope: GOOGLE_DRIVE_SCOPE,
-          callback: (tokenResponse) => {
-            if (tokenResponse && tokenResponse.access_token) {
-              googleAccessToken = tokenResponse.access_token;
-              const expiresIn = parseInt(tokenResponse.expires_in, 10) || 3500;
-              googleTokenExpiry = Date.now() + (expiresIn - 60) * 1000;
-              updateDriveStatusUI();
-              resolve(googleAccessToken);
-            } else {
-              reject(new Error(tokenResponse?.error || 'فشل الحصول على تصريح Google Drive'));
-            }
-          }
-        });
-        tokenClient.requestAccessToken({ prompt: isDriveConnected() ? '' : 'consent' });
-      });
-    }
-
-    async function ensureDriveFolder(token) {
-      let folderId = (document.getElementById('settingDriveFolderId')?.value || settings.driveFolderId || '').trim();
-      if (folderId) return folderId;
-
-      const query = encodeURIComponent(`name='${DEFAULT_DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const searchData = await searchRes.json();
-      if (searchData.files && searchData.files.length > 0) {
-        folderId = searchData.files[0].id;
-      } else {
-        const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            name: DEFAULT_DRIVE_FOLDER_NAME,
-            mimeType: 'application/vnd.google-apps.folder'
-          })
-        });
-        const createdFolder = await createRes.json();
-        folderId = createdFolder.id;
-      }
-
-      if (folderId) {
-        settings.driveFolderId = folderId;
-        const folderInput = document.getElementById('settingDriveFolderId');
-        if (folderInput) folderInput.value = folderId;
-        localStorage.setItem('pharmacy_settings_v2', JSON.stringify(settings));
-      }
-      return folderId;
-    }
-
-    async function generatePrintablePdfBlob(invoiceObj) {
-      fillPrintableTemplate(invoiceObj);
-      const printEl = document.getElementById('printableInvoice');
-      printEl.classList.add('render-capture');
-
-      try {
-        await new Promise(r => setTimeout(r, 120));
-        const canvas = await html2canvas(printEl, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff'
-        });
-
-        const imgData = canvas.toDataURL('image/png');
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        const pageHeight = pdf.internal.pageSize.getHeight();
-
-        let heightLeft = pdfHeight;
-        let position = 0;
-
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-
-        while (heightLeft > 0) {
-          position = heightLeft - pdfHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-          heightLeft -= pageHeight;
-        }
-
-        return pdf.output('blob');
-      } finally {
-        printEl.classList.remove('render-capture');
-      }
-    }
-
-    async function uploadInvoiceCopyToDrive(invoiceObj, interactiveConnect = false) {
-      let token = googleAccessToken;
-      if (!isDriveConnected()) {
-        if (interactiveConnect) {
-          token = await connectGoogleDrive();
-        } else {
-          return { uploaded: false, reason: 'not_connected' };
-        }
-      }
-
-      const pdfBlob = await generatePrintablePdfBlob(invoiceObj);
-      const folderId = await ensureDriveFolder(token);
-
-      const safePatient = (invoiceObj.patientName || 'مريض').replace(/[\\/:*?"<>|]/g, '_').trim();
-      const safeTicket = (invoiceObj.ticketNo || 'بدون_تذكرة').replace(/[\\/:*?"<>|]/g, '_').trim();
-      const safeCompany = (invoiceObj.company || 'تأمين').replace(/[\\/:*?"<>|]/g, '_').trim();
-      const safeDate = (invoiceObj.claimDate || new Date().toISOString().slice(0, 10));
-      const fileName = `${safeCompany}_${safePatient}_${safeTicket}_${safeDate}.pdf`;
-
-      const metadata = {
-        name: fileName,
-        mimeType: 'application/pdf'
-      };
-      if (folderId) {
-        metadata.parents = [folderId];
-      }
-
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-      form.append('file', pdfBlob);
-
-      const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        body: form
-      });
-
-      const uploadedFile = await uploadRes.json();
-      if (!uploadRes.ok || uploadedFile.error) {
-        throw new Error(uploadedFile.error?.message || 'فشل رفع الملف إلى Google Drive');
-      }
-
-      const idx = invoices.findIndex(i => i.id === invoiceObj.id);
-      if (idx !== -1) {
-        invoices[idx].driveFileId = uploadedFile.id;
-        invoices[idx].driveWebViewLink = uploadedFile.webViewLink || `https://drive.google.com/file/d/${uploadedFile.id}/view`;
-        localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
-      }
-
-      return { uploaded: true, file: uploadedFile };
-    }
-
-    async function manualUploadInvoiceToDrive(id) {
-      const inv = invoices.find(i => i.id === id);
-      if (!inv) return;
-      try {
-        const res = await uploadInvoiceCopyToDrive(inv, true);
-        if (res.uploaded) {
-          renderRecordsTable();
-          alert(`تم حفظ نسخة الطباعة بنجاح على Google Drive باسم:\n${res.file.name}`);
-        }
-      } catch (err) {
-        console.error('Drive Upload Error:', err);
-        alert('تعذر رفع النسخة إلى Google Drive: ' + err.message);
-      }
     }
 
     function toggleMedrightFields() {
@@ -1179,14 +1106,8 @@
       }
     }
 
-    async function saveRecord() {
-      const saveBtn = document.getElementById('saveSubmitBtn');
-      const saveBtnText = document.getElementById('saveBtnText');
-      const autoUpload = document.getElementById('autoUploadDriveCheck')?.checked;
-
+    function saveRecord() {
       const editingId = document.getElementById('editingId').value;
-      const existingInv = editingId ? invoices.find(i => i.id === editingId) : null;
-
       const medicines = [];
       document.querySelectorAll('#medicinesTableBody tr').forEach(row => {
         medicines.push({
@@ -1199,6 +1120,8 @@
 
       const invoiceData = {
         id: editingId ? editingId : Date.now().toString(),
+        accountKey: currentAccountKey,
+        accountEmail: currentUserEmail,
         patientName: document.getElementById('patientName').value,
         ticketNo: document.getElementById('ticketNo').value,
         cardNo: document.getElementById('cardNo').value,
@@ -1212,9 +1135,7 @@
         pharmacyDiscountAmount: parseFloat(document.getElementById('pharmacyDiscountAmount').value) || 0,
         patientPaid: parseFloat(document.getElementById('patientPaid').value) || 0,
         companyPaid: parseFloat(document.getElementById('companyPaid').value) || 0,
-        medicines: medicines,
-        driveFileId: existingInv?.driveFileId || '',
-        driveWebViewLink: existingInv?.driveWebViewLink || ''
+        medicines: medicines
       };
 
       if (editingId) {
@@ -1224,30 +1145,13 @@
         invoices.push(invoiceData);
       }
 
-      localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
-      populateReportMonths();
-
-      let driveStatusMessage = '';
-      if (autoUpload) {
-        saveBtn.disabled = true;
-        saveBtnText.innerText = 'جاري حفظ نسخة الطباعة على Drive...';
-        try {
-          const uploadRes = await uploadInvoiceCopyToDrive(invoiceData, Boolean(settings.googleClientId));
-          if (uploadRes.uploaded) {
-            driveStatusMessage = `\n✅ وتم حفظ نسخة PDF طبق الأصل للطباعة على Google Drive (${uploadRes.file.name}).`;
-          } else {
-            driveStatusMessage = '\nℹ️ تم الحفظ محلياً (اربط Google Drive من الإعدادات لتفعيل الرفع السحابي التلقائي).';
-          }
-        } catch (err) {
-          console.error('Drive Auto-Upload Error:', err);
-          driveStatusMessage = `\n⚠️ تم حفظ الفاتورة محلياً، لكن تعذر الرفع إلى Google Drive: ${err.message}`;
-        } finally {
-          saveBtn.disabled = false;
-          saveBtnText.innerText = 'حفظ الفاتورة + نسخة Drive';
-        }
+      if (currentAccountKey) {
+        localStorage.setItem(getInvoicesStorageKey(currentAccountKey), JSON.stringify(invoices));
       }
+      localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
 
-      alert('تم حفظ الفاتورة بنجاح!' + driveStatusMessage);
+      populateReportMonths();
+      alert('تم حفظ الفاتورة بنجاح!');
       resetForm();
       switchTab('records');
     }
@@ -1261,8 +1165,6 @@
       document.getElementById('pharmacyDiscountAmount').value = '0';
       document.getElementById('patientPaid').value = '0';
       document.getElementById('companyPaid').value = '0';
-      const autoCheck = document.getElementById('autoUploadDriveCheck');
-      if (autoCheck) autoCheck.checked = true;
     }
 
     function renderRecordsTable() {
@@ -1270,15 +1172,11 @@
       tbody.innerHTML = '';
 
       if (invoices.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400 font-semibold">لا توجد فواتير محفوظة</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 font-semibold">لا توجد فواتير محفوظة</td></tr>`;
         return;
       }
 
       invoices.forEach(inv => {
-        const driveCell = inv.driveWebViewLink
-          ? `<a href="${inv.driveWebViewLink}" target="_blank" class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold px-2.5 py-1 rounded-lg transition"><i class="fa-brands fa-google-drive"></i> عرض النسخة</a>`
-          : `<button type="button" onclick="manualUploadInvoiceToDrive('${inv.id}')" class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold px-2.5 py-1 rounded-lg transition"><i class="fa-solid fa-cloud-arrow-up"></i> رفع نسخة</button>`;
-
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50';
         tr.innerHTML = `
@@ -1289,7 +1187,6 @@
           <td class="p-3 font-bold">${(parseFloat(inv.totalAmount) || 0).toFixed(2)} ج.م</td>
           <td class="p-3 text-blue-700 font-bold">${(parseFloat(inv.companyPaid) || 0).toFixed(2)} ج.م</td>
           <td class="p-3 text-emerald-700 font-bold">${(parseFloat(inv.patientPaid) || 0).toFixed(2)} ج.م</td>
-          <td class="p-3 text-center whitespace-nowrap">${driveCell}</td>
           <td class="p-3 text-center whitespace-nowrap">
             <button type="button" onclick="printSavedInvoice('${inv.id}')" class="text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 font-bold px-2.5 py-1 rounded-lg ml-1 transition"><i class="fa-solid fa-print"></i> طباعة</button>
             <button type="button" onclick="editInvoice('${inv.id}')" class="text-blue-600 hover:text-blue-800 font-bold px-2"><i class="fa-solid fa-pen-to-square"></i> تعديل</button>
@@ -1338,6 +1235,9 @@
     function deleteInvoice(id) {
       if (confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) {
         invoices = invoices.filter(i => i.id !== id);
+        if (currentAccountKey) {
+          localStorage.setItem(getInvoicesStorageKey(currentAccountKey), JSON.stringify(invoices));
+        }
         localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
         populateReportMonths();
         renderRecordsTable();
@@ -1590,7 +1490,6 @@
       `;
 
       document.getElementById('modalPrintBtn').onclick = () => printSavedInvoice(inv.id);
-      document.getElementById('modalDriveUploadBtn').onclick = () => manualUploadInvoiceToDrive(inv.id);
       document.getElementById('modalEditBtn').onclick = () => editInvoice(inv.id);
 
       const modal = document.getElementById('claimDetailsModal');
@@ -1613,9 +1512,10 @@
       settings.mobile = document.getElementById('settingMobile').value;
       settings.email = document.getElementById('settingEmail').value;
       settings.apiKey = document.getElementById('settingApiKey').value;
-      settings.googleClientId = document.getElementById('settingGoogleClientId').value.trim();
-      settings.driveFolderId = document.getElementById('settingDriveFolderId').value.trim();
 
+      if (currentAccountKey) {
+        localStorage.setItem(getSettingsStorageKey(currentAccountKey), JSON.stringify(settings));
+      }
       localStorage.setItem('pharmacy_settings_v2', JSON.stringify(settings));
       applySettingsToUI();
       alert('تم حفظ الإعدادات بنجاح!');
