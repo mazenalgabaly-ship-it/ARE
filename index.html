@@ -3,10 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نظام صيدلية الجبلي للتأمين الطبي v3.8</title>
+  <title>نظام صيدلية الجبلي للتأمين الطبي v3.9</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -23,6 +26,16 @@
     @media screen {
       #printableInvoice {
         display: none !important;
+      }
+      #printableInvoice.render-capture {
+        display: block !important;
+        position: fixed !important;
+        left: -9999px !important;
+        top: 0 !important;
+        width: 794px !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        z-index: -1 !important;
       }
     }
     @media print {
@@ -60,7 +73,7 @@
       <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow"><i class="fa-solid fa-prescription-bottle-medical text-xl"></i></div>
       <div>
         <h1 class="font-extrabold text-base leading-tight" id="sidebarPharmName">صيدلية الجبلي</h1>
-        <p class="text-xs text-slate-400">نظام التأمين الطبي v3.8</p>
+        <p class="text-xs text-slate-400">نظام التأمين الطبي v3.9</p>
       </div>
     </div>
 
@@ -81,6 +94,14 @@
         <i class="fa-solid fa-gear w-5"></i> الإعدادات
       </button>
     </nav>
+
+    <!-- حالة الاتصال بجوجل درايف -->
+    <div class="px-4 py-3 border-t border-slate-800">
+      <div id="driveStatusBadge" class="text-xs bg-slate-800 text-slate-300 px-3 py-2 rounded-xl flex items-center justify-between">
+        <span><i class="fa-brands fa-google-drive text-slate-400 ml-1"></i> Drive غير متصل</span>
+        <button type="button" onclick="connectGoogleDrive()" class="text-blue-400 hover:text-blue-300 font-bold underline">ربط</button>
+      </div>
+    </div>
 
     <div class="p-4 border-t border-slate-800 text-xs text-slate-400 text-center leading-relaxed" id="sidebarFooter">
       شارع صلاح سالم - الباجور <br> س.ت: 60961 | ب.ض: 611509792
@@ -131,9 +152,14 @@
 
     <!-- 2. صفحة إدخال فاتورة جديدة -->
     <section id="page-newInvoice" class="tab-section hidden space-y-6">
-      <div class="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+      <div class="flex flex-wrap justify-between items-center gap-2 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
         <h2 class="text-xl font-extrabold text-slate-800" id="formTitle">إدخال فاتورة تأمين جديدة</h2>
-        <button type="button" onclick="resetForm()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-3.5 rounded-xl transition">إعادة ضبط النموذج</button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="connectGoogleDrive()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold py-2 px-3.5 rounded-xl transition flex items-center gap-1.5">
+            <i class="fa-brands fa-google-drive"></i> <span id="topDriveBtnText">ربط Google Drive</span>
+          </button>
+          <button type="button" onclick="resetForm()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-3.5 rounded-xl transition">إعادة ضبط النموذج</button>
+        </div>
       </div>
 
       <!-- القراءة الذكية بواسطة Gemini AI -->
@@ -211,7 +237,7 @@
           </div>
         </div>
 
-        <!-- جدول الأدوية (عمود واحد للكمية والوحدة كما بالورقة) -->
+        <!-- جدول الأدوية -->
         <div class="border-t border-slate-200 pt-4">
           <div class="flex justify-between items-center mb-3">
             <h3 class="font-bold text-sm text-slate-700">تفاصيل الأدوية الموصوفة</h3>
@@ -252,9 +278,15 @@
           </div>
         </div>
 
-        <div class="flex flex-wrap gap-3">
-          <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition"><i class="fa-solid fa-floppy-disk"></i> حفظ الفاتورة</button>
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="submit" id="saveSubmitBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition flex items-center gap-2">
+            <i class="fa-solid fa-floppy-disk"></i> <span id="saveBtnText">حفظ الفاتورة + نسخة Drive</span>
+          </button>
           <button type="button" onclick="printCurrentForm()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition"><i class="fa-solid fa-print"></i> معاينة وطباعة</button>
+          <label class="flex items-center gap-2 text-xs font-bold text-slate-600 mr-2 cursor-pointer">
+            <input type="checkbox" id="autoUploadDriveCheck" checked class="w-4 h-4 text-blue-600 rounded">
+            رفع نسخة PDF للطباعة تلقائياً على Google Drive عند الحفظ
+          </label>
         </div>
       </form>
     </section>
@@ -264,7 +296,7 @@
       <div class="flex flex-wrap justify-between items-center gap-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
         <div>
           <h2 class="text-xl font-extrabold text-slate-800">سجل الفواتير المحفوظة</h2>
-          <p class="text-xs text-slate-500 mt-0.5">عرض، تعديل، طباعة، أو حذف أي فاتورة</p>
+          <p class="text-xs text-slate-500 mt-0.5">عرض، تعديل، طباعة، أو رفع نسخة PDF إلى Google Drive</p>
         </div>
         <input type="text" id="searchRecordInput" onkeyup="filterRecords()" placeholder="بحث باسم المريض أو الكارنيه..." class="border border-slate-300 rounded-xl px-3.5 py-2 text-xs w-full sm:w-72">
       </div>
@@ -281,6 +313,7 @@
                 <th class="p-3">الإجمالي</th>
                 <th class="p-3">المطلوب من الشركة</th>
                 <th class="p-3">تحمل المريض</th>
+                <th class="p-3 text-center">Google Drive</th>
                 <th class="p-3 text-center">إجراءات</th>
               </tr>
             </thead>
@@ -358,7 +391,7 @@
 
     <!-- 5. صفحة الإعدادات -->
     <section id="page-settings" class="tab-section hidden space-y-6">
-      <h2 class="text-xl font-extrabold text-slate-800">إعدادات النظام والبيانات الضريبية</h2>
+      <h2 class="text-xl font-extrabold text-slate-800">إعدادات النظام والبيانات الضريبية والربط السحابي</h2>
 
       <form id="settingsForm" onsubmit="event.preventDefault(); saveSettings();" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4 max-w-2xl">
         <div>
@@ -398,6 +431,24 @@
           <input type="password" id="settingApiKey" class="w-full border rounded-xl p-2 text-sm">
         </div>
 
+        <div class="border-t border-slate-200 pt-4 space-y-3">
+          <h3 class="font-bold text-sm text-blue-800 flex items-center gap-2"><i class="fa-brands fa-google-drive"></i> إعدادات Google Drive لحفظ نسخ الطباعة</h3>
+          <div>
+            <label class="block text-xs font-bold mb-1">Google OAuth Client ID *</label>
+            <input type="text" id="settingGoogleClientId" placeholder="xxxxxxxxxxxx-xxxxxxxxxxxxxxxx.apps.googleusercontent.com" class="w-full border border-blue-200 bg-blue-50/40 rounded-xl p-2 text-sm" dir="ltr">
+          </div>
+          <div>
+            <label class="block text-xs font-bold mb-1">معرف المجلد في Google Drive (Folder ID - اختياري)</label>
+            <input type="text" id="settingDriveFolderId" placeholder="اتركه فارغاً لإنشاء مجلد تلقائي باسم (فواتير التأمين - صيدلية الجبلي)" class="w-full border rounded-xl p-2 text-sm" dir="ltr">
+          </div>
+          <div class="flex items-center gap-3 pt-1">
+            <button type="button" onclick="connectGoogleDrive()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-2 transition">
+              <i class="fa-brands fa-google-drive"></i> ربط / تسجيل الدخول إلى Google Drive
+            </button>
+            <span id="settingsDriveStatus" class="text-xs font-bold text-slate-500">غير متصل</span>
+          </div>
+        </div>
+
         <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition">حفظ الإعدادات</button>
       </form>
     </section>
@@ -421,6 +472,9 @@
         <div class="flex gap-2">
           <button type="button" id="modalPrintBtn" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5">
             <i class="fa-solid fa-print"></i> طباعة
+          </button>
+          <button type="button" id="modalDriveUploadBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5">
+            <i class="fa-brands fa-google-drive"></i> حفظ نسخة على Drive
           </button>
           <button type="button" id="modalEditBtn" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5">
             <i class="fa-solid fa-pen-to-square"></i> تعديل
@@ -486,6 +540,8 @@
     const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
     const FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-4-hydrogen', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
     const GEMINI_API_VERSION = 'v1beta';
+    const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+    const DEFAULT_DRIVE_FOLDER_NAME = 'فواتير التأمين - صيدلية الجبلي';
 
     if (window.pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -500,13 +556,17 @@
       landline: '',
       mobile: '',
       email: '',
-      apiKey: ''
+      apiKey: '',
+      googleClientId: '',
+      driveFolderId: ''
     };
 
     let chartInstance = null;
     let activeReportCompany = null;
     let activeReportMonth = null;
     let isPrintTemplatePrepared = false;
+    let googleAccessToken = null;
+    let googleTokenExpiry = 0;
 
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('claimDate').valueAsDate = new Date();
@@ -514,6 +574,7 @@
       toggleMedrightFields();
       populateReportMonths();
       renderDashboard();
+      updateDriveStatusUI();
     });
 
     function applySettingsToUI() {
@@ -525,6 +586,8 @@
       document.getElementById('settingMobile').value = settings.mobile || '';
       document.getElementById('settingEmail').value = settings.email || '';
       document.getElementById('settingApiKey').value = settings.apiKey || '';
+      document.getElementById('settingGoogleClientId').value = settings.googleClientId || '';
+      document.getElementById('settingDriveFolderId').value = settings.driveFolderId || '';
       if (settings.apiKey) document.getElementById('apiKeyInput').value = settings.apiKey;
 
       document.getElementById('sidebarPharmName').innerText = settings.pharmacyName || 'صيدلية الجبلي';
@@ -534,6 +597,214 @@
       document.getElementById('sidebarFooter').innerHTML =
         `${settings.address || 'شارع صلاح سالم - الباجور'} <br> س.ت: ${settings.commReg || '60961'} | ب.ض: ${settings.taxReg || '611509792'}` +
         (contactParts.length ? `<br>${contactParts.join(' | ')}` : '');
+    }
+
+    function isDriveConnected() {
+      return Boolean(googleAccessToken && Date.now() < googleTokenExpiry);
+    }
+
+    function updateDriveStatusUI() {
+      const sideBadge = document.getElementById('driveStatusBadge');
+      const topBtnText = document.getElementById('topDriveBtnText');
+      const settingsStatus = document.getElementById('settingsDriveStatus');
+
+      if (isDriveConnected()) {
+        if (sideBadge) {
+          sideBadge.innerHTML = `<span class="text-emerald-400 font-bold"><i class="fa-brands fa-google-drive ml-1"></i> Drive متصل</span><span class="text-[10px] text-slate-400">نشط</span>`;
+        }
+        if (topBtnText) topBtnText.innerText = 'Drive متصل ✓';
+        if (settingsStatus) {
+          settingsStatus.innerText = 'متصل بنجاح ✓';
+          settingsStatus.className = 'text-xs font-bold text-emerald-600';
+        }
+      } else {
+        if (sideBadge) {
+          sideBadge.innerHTML = `<span><i class="fa-brands fa-google-drive text-slate-400 ml-1"></i> Drive غير متصل</span><button type="button" onclick="connectGoogleDrive()" class="text-blue-400 hover:text-blue-300 font-bold underline">ربط</button>`;
+        }
+        if (topBtnText) topBtnText.innerText = 'ربط Google Drive';
+        if (settingsStatus) {
+          settingsStatus.innerText = 'غير متصل';
+          settingsStatus.className = 'text-xs font-bold text-slate-500';
+        }
+      }
+    }
+
+    function connectGoogleDrive() {
+      return new Promise((resolve, reject) => {
+        const clientId = (document.getElementById('settingGoogleClientId')?.value || settings.googleClientId || '').trim();
+        if (!clientId) {
+          alert('يرجى إدخال Google OAuth Client ID أولاً في صفحة الإعدادات ثم حفظ الإعدادات.');
+          switchTab('settings');
+          reject(new Error('Missing Google Client ID'));
+          return;
+        }
+        if (!window.google || !google.accounts || !google.accounts.oauth2) {
+          alert('مكتبة تسجيل الدخول من Google قيد التحميل أو لا يوجد اتصال بالإنترنت.');
+          reject(new Error('Google Identity Services not loaded'));
+          return;
+        }
+
+        const tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: GOOGLE_DRIVE_SCOPE,
+          callback: (tokenResponse) => {
+            if (tokenResponse && tokenResponse.access_token) {
+              googleAccessToken = tokenResponse.access_token;
+              const expiresIn = parseInt(tokenResponse.expires_in, 10) || 3500;
+              googleTokenExpiry = Date.now() + (expiresIn - 60) * 1000;
+              updateDriveStatusUI();
+              resolve(googleAccessToken);
+            } else {
+              reject(new Error(tokenResponse?.error || 'فشل الحصول على تصريح Google Drive'));
+            }
+          }
+        });
+        tokenClient.requestAccessToken({ prompt: isDriveConnected() ? '' : 'consent' });
+      });
+    }
+
+    async function ensureDriveFolder(token) {
+      let folderId = (document.getElementById('settingDriveFolderId')?.value || settings.driveFolderId || '').trim();
+      if (folderId) return folderId;
+
+      const query = encodeURIComponent(`name='${DEFAULT_DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const searchData = await searchRes.json();
+      if (searchData.files && searchData.files.length > 0) {
+        folderId = searchData.files[0].id;
+      } else {
+        const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: DEFAULT_DRIVE_FOLDER_NAME,
+            mimeType: 'application/vnd.google-apps.folder'
+          })
+        });
+        const createdFolder = await createRes.json();
+        folderId = createdFolder.id;
+      }
+
+      if (folderId) {
+        settings.driveFolderId = folderId;
+        const folderInput = document.getElementById('settingDriveFolderId');
+        if (folderInput) folderInput.value = folderId;
+        localStorage.setItem('pharmacy_settings_v2', JSON.stringify(settings));
+      }
+      return folderId;
+    }
+
+    async function generatePrintablePdfBlob(invoiceObj) {
+      fillPrintableTemplate(invoiceObj);
+      const printEl = document.getElementById('printableInvoice');
+      printEl.classList.add('render-capture');
+
+      try {
+        await new Promise(r => setTimeout(r, 120));
+        const canvas = await html2canvas(printEl, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff'
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        const pageHeight = pdf.internal.pageSize.getHeight();
+
+        let heightLeft = pdfHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft > 0) {
+          position = heightLeft - pdfHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+          heightLeft -= pageHeight;
+        }
+
+        return pdf.output('blob');
+      } finally {
+        printEl.classList.remove('render-capture');
+      }
+    }
+
+    async function uploadInvoiceCopyToDrive(invoiceObj, interactiveConnect = false) {
+      let token = googleAccessToken;
+      if (!isDriveConnected()) {
+        if (interactiveConnect) {
+          token = await connectGoogleDrive();
+        } else {
+          return { uploaded: false, reason: 'not_connected' };
+        }
+      }
+
+      const pdfBlob = await generatePrintablePdfBlob(invoiceObj);
+      const folderId = await ensureDriveFolder(token);
+
+      const safePatient = (invoiceObj.patientName || 'مريض').replace(/[\\/:*?"<>|]/g, '_').trim();
+      const safeTicket = (invoiceObj.ticketNo || 'بدون_تذكرة').replace(/[\\/:*?"<>|]/g, '_').trim();
+      const safeCompany = (invoiceObj.company || 'تأمين').replace(/[\\/:*?"<>|]/g, '_').trim();
+      const safeDate = (invoiceObj.claimDate || new Date().toISOString().slice(0, 10));
+      const fileName = `${safeCompany}_${safePatient}_${safeTicket}_${safeDate}.pdf`;
+
+      const metadata = {
+        name: fileName,
+        mimeType: 'application/pdf'
+      };
+      if (folderId) {
+        metadata.parents = [folderId];
+      }
+
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', pdfBlob);
+
+      const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: form
+      });
+
+      const uploadedFile = await uploadRes.json();
+      if (!uploadRes.ok || uploadedFile.error) {
+        throw new Error(uploadedFile.error?.message || 'فشل رفع الملف إلى Google Drive');
+      }
+
+      const idx = invoices.findIndex(i => i.id === invoiceObj.id);
+      if (idx !== -1) {
+        invoices[idx].driveFileId = uploadedFile.id;
+        invoices[idx].driveWebViewLink = uploadedFile.webViewLink || `https://drive.google.com/file/d/${uploadedFile.id}/view`;
+        localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
+      }
+
+      return { uploaded: true, file: uploadedFile };
+    }
+
+    async function manualUploadInvoiceToDrive(id) {
+      const inv = invoices.find(i => i.id === id);
+      if (!inv) return;
+      try {
+        const res = await uploadInvoiceCopyToDrive(inv, true);
+        if (res.uploaded) {
+          renderRecordsTable();
+          alert(`تم حفظ نسخة الطباعة بنجاح على Google Drive باسم:\n${res.file.name}`);
+        }
+      } catch (err) {
+        console.error('Drive Upload Error:', err);
+        alert('تعذر رفع النسخة إلى Google Drive: ' + err.message);
+      }
     }
 
     function toggleMedrightFields() {
@@ -820,7 +1091,10 @@
           12. companyPaidAmount: قيمة "المطلوب من الشركة" بالجنيه المصري:
               - إذا كانت الشركة AXA (أكسا): استخرج القيمة حصراً من خانة (Insurer) كما هي مكتوبة في الورقة.
               - في باقي الشركات: اقرأ قيمة المطلوب من الشركة كما هي مكتوبة في الورقة دون حساب معادلات.
-          13. medicines: اجمع كل الأدوية من كل الصفحات في مصفوفة واحدة:
+          13. medicines: اجمع كل الأدوية من كل الصفحات في مصفوفة واحدة وفق قاعدة الشركة الصارمة التالية:
+              - إذا كانت الشركة AXA (أكسا): اقرأ الأدوية حصراً من خانة/قسم (dispensed) فقط، وتجاهل أي أدوية موجودة في خانات أو أقسام أخرى (مثل prescribed أو requested أو غير المصروفة).
+              - إذا كانت الشركة MetLife (ميتلايف) أو MedRight (ميدرايت): اقرأ الأدوية حصراً من خانة/قسم (approved) فقط، وتجاهل أي أدوية غير معتمدة أو مرفوضة أو تحت المراجعة.
+              لكل دواء مستخرج من القسم المطلوب:
               - name: اسم الدواء فقط نظيفاً بدون أرقام الكمية أو الوحدات.
               - qtyText: الكمية مع وحدتها أو وصفها كما هو مكتوب بالضبط في الورقة كنص (مثل "2 شريط" أو "2 أمبول" أو "1 علبة" أو "2-3").
               - price: سعر الوحدة للقطعة/العلبة الواحدة.
@@ -905,8 +1179,14 @@
       }
     }
 
-    function saveRecord() {
+    async function saveRecord() {
+      const saveBtn = document.getElementById('saveSubmitBtn');
+      const saveBtnText = document.getElementById('saveBtnText');
+      const autoUpload = document.getElementById('autoUploadDriveCheck')?.checked;
+
       const editingId = document.getElementById('editingId').value;
+      const existingInv = editingId ? invoices.find(i => i.id === editingId) : null;
+
       const medicines = [];
       document.querySelectorAll('#medicinesTableBody tr').forEach(row => {
         medicines.push({
@@ -932,7 +1212,9 @@
         pharmacyDiscountAmount: parseFloat(document.getElementById('pharmacyDiscountAmount').value) || 0,
         patientPaid: parseFloat(document.getElementById('patientPaid').value) || 0,
         companyPaid: parseFloat(document.getElementById('companyPaid').value) || 0,
-        medicines: medicines
+        medicines: medicines,
+        driveFileId: existingInv?.driveFileId || '',
+        driveWebViewLink: existingInv?.driveWebViewLink || ''
       };
 
       if (editingId) {
@@ -944,7 +1226,28 @@
 
       localStorage.setItem('pharmacy_invoices_v2', JSON.stringify(invoices));
       populateReportMonths();
-      alert('تم حفظ الفاتورة بنجاح في قاعدة البيانات!');
+
+      let driveStatusMessage = '';
+      if (autoUpload) {
+        saveBtn.disabled = true;
+        saveBtnText.innerText = 'جاري حفظ نسخة الطباعة على Drive...';
+        try {
+          const uploadRes = await uploadInvoiceCopyToDrive(invoiceData, Boolean(settings.googleClientId));
+          if (uploadRes.uploaded) {
+            driveStatusMessage = `\n✅ وتم حفظ نسخة PDF طبق الأصل للطباعة على Google Drive (${uploadRes.file.name}).`;
+          } else {
+            driveStatusMessage = '\nℹ️ تم الحفظ محلياً (اربط Google Drive من الإعدادات لتفعيل الرفع السحابي التلقائي).';
+          }
+        } catch (err) {
+          console.error('Drive Auto-Upload Error:', err);
+          driveStatusMessage = `\n⚠️ تم حفظ الفاتورة محلياً، لكن تعذر الرفع إلى Google Drive: ${err.message}`;
+        } finally {
+          saveBtn.disabled = false;
+          saveBtnText.innerText = 'حفظ الفاتورة + نسخة Drive';
+        }
+      }
+
+      alert('تم حفظ الفاتورة بنجاح!' + driveStatusMessage);
       resetForm();
       switchTab('records');
     }
@@ -958,6 +1261,8 @@
       document.getElementById('pharmacyDiscountAmount').value = '0';
       document.getElementById('patientPaid').value = '0';
       document.getElementById('companyPaid').value = '0';
+      const autoCheck = document.getElementById('autoUploadDriveCheck');
+      if (autoCheck) autoCheck.checked = true;
     }
 
     function renderRecordsTable() {
@@ -965,11 +1270,15 @@
       tbody.innerHTML = '';
 
       if (invoices.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 font-semibold">لا توجد فواتير محفوظة</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400 font-semibold">لا توجد فواتير محفوظة</td></tr>`;
         return;
       }
 
       invoices.forEach(inv => {
+        const driveCell = inv.driveWebViewLink
+          ? `<a href="${inv.driveWebViewLink}" target="_blank" class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold px-2.5 py-1 rounded-lg transition"><i class="fa-brands fa-google-drive"></i> عرض النسخة</a>`
+          : `<button type="button" onclick="manualUploadInvoiceToDrive('${inv.id}')" class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold px-2.5 py-1 rounded-lg transition"><i class="fa-solid fa-cloud-arrow-up"></i> رفع نسخة</button>`;
+
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50';
         tr.innerHTML = `
@@ -980,6 +1289,7 @@
           <td class="p-3 font-bold">${(parseFloat(inv.totalAmount) || 0).toFixed(2)} ج.م</td>
           <td class="p-3 text-blue-700 font-bold">${(parseFloat(inv.companyPaid) || 0).toFixed(2)} ج.م</td>
           <td class="p-3 text-emerald-700 font-bold">${(parseFloat(inv.patientPaid) || 0).toFixed(2)} ج.م</td>
+          <td class="p-3 text-center whitespace-nowrap">${driveCell}</td>
           <td class="p-3 text-center whitespace-nowrap">
             <button type="button" onclick="printSavedInvoice('${inv.id}')" class="text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 font-bold px-2.5 py-1 rounded-lg ml-1 transition"><i class="fa-solid fa-print"></i> طباعة</button>
             <button type="button" onclick="editInvoice('${inv.id}')" class="text-blue-600 hover:text-blue-800 font-bold px-2"><i class="fa-solid fa-pen-to-square"></i> تعديل</button>
@@ -1280,6 +1590,7 @@
       `;
 
       document.getElementById('modalPrintBtn').onclick = () => printSavedInvoice(inv.id);
+      document.getElementById('modalDriveUploadBtn').onclick = () => manualUploadInvoiceToDrive(inv.id);
       document.getElementById('modalEditBtn').onclick = () => editInvoice(inv.id);
 
       const modal = document.getElementById('claimDetailsModal');
@@ -1302,6 +1613,8 @@
       settings.mobile = document.getElementById('settingMobile').value;
       settings.email = document.getElementById('settingEmail').value;
       settings.apiKey = document.getElementById('settingApiKey').value;
+      settings.googleClientId = document.getElementById('settingGoogleClientId').value.trim();
+      settings.driveFolderId = document.getElementById('settingDriveFolderId').value.trim();
 
       localStorage.setItem('pharmacy_settings_v2', JSON.stringify(settings));
       applySettingsToUI();
