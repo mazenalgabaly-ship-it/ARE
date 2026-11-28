@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نظام صيدلية الجبلي للتأمين الطبي v4.0</title>
+  <title>نظام صيدلية الجبلي للتأمين الطبي v4.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -54,26 +55,26 @@
 </head>
 <body class="bg-slate-100 text-slate-800 h-screen overflow-hidden">
 
-  <!-- صفحة تسجيل الدخول (Log In) في البداية -->
-  <section id="loginScreen" class="fixed inset-0 z-50 bg-slate-900 flex items-center justify-center p-4 overflow-y-auto">
-    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-8 space-y-6">
+  <!-- شاشة المصادقة في البداية: Log In + Sign Up + Continue with Google -->
+  <section id="authScreen" class="fixed inset-0 z-50 bg-slate-900 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-8 space-y-5 my-auto">
+
       <div class="text-center space-y-2">
         <div class="w-14 h-14 mx-auto bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg">
           <i class="fa-solid fa-prescription-bottle-medical text-2xl"></i>
         </div>
-        <h1 class="text-xl font-extrabold text-slate-900">تسجيل الدخول - صيدلية الجبلي</h1>
-        <p class="text-xs text-slate-500 leading-relaxed">
-          أدخل البريد الإلكتروني وكلمة المرور للوصول إلى الفواتير والتقارير. نفس البيانات تربط الجلسات والحسابات بنفس الهوية.
+        <h1 class="text-xl font-extrabold text-slate-900" id="authHeaderTitle">تسجيل الدخول - صيدلية الجبلي</h1>
+        <p class="text-xs text-slate-500 leading-relaxed" id="authHeaderSubtitle">
+          أدخل البريد الإلكتروني وكلمة المرور أو تابع عبر Google. نفس البيانات تربط الحساب بنفس الهوية حتى من أجهزة مختلفة.
         </p>
       </div>
 
+      <!-- نموذج Log In -->
       <form id="loginForm" onsubmit="event.preventDefault(); handleLoginSubmit();" class="space-y-4">
         <div>
           <label for="loginEmail" class="block text-xs font-bold text-slate-700 mb-1.5">البريد الإلكتروني (Email) *</label>
-          <div class="relative">
-            <input type="email" id="loginEmail" required placeholder="name@example.com" dir="ltr"
-              class="w-full border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl p-2.5 text-sm text-left">
-          </div>
+          <input type="email" id="loginEmail" required placeholder="name@example.com" dir="ltr"
+            class="w-full border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl p-2.5 text-sm text-left">
         </div>
 
         <div>
@@ -90,15 +91,90 @@
           <span class="text-blue-700 font-bold">ربط موحد بالبيانات</span>
         </div>
 
-        <p id="loginErrorMsg" class="hidden text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-xl p-2.5"></p>
-
         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-3 px-4 rounded-xl text-sm shadow transition flex items-center justify-center gap-2">
-          <i class="fa-solid fa-right-to-bracket"></i> دخول إلى النظام
+          <i class="fa-solid fa-right-to-bracket"></i> Log In
         </button>
+
+        <div class="pt-1 text-center">
+          <button type="button" onclick="switchAuthMode('signup')" class="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline transition">
+            Don't have an account? Sign up
+          </button>
+        </div>
       </form>
 
-      <div class="border-t border-slate-100 pt-4 text-center text-[11px] text-slate-400 leading-relaxed">
-        لو فتحت بنفس البريد الإلكتروني وكلمة المرور من جهاز آخر، سيتم ربطهما بنفس مساحة الحساب والبيانات.
+      <!-- نموذج Sign Up -->
+      <form id="signupForm" onsubmit="event.preventDefault(); handleSignupSubmit();" class="hidden space-y-4">
+        <div>
+          <label for="signupName" class="block text-xs font-bold text-slate-700 mb-1.5">الاسم / اسم الصيدلية</label>
+          <input type="text" id="signupName" placeholder="مثال: صيدلية الجبلي"
+            class="w-full border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 rounded-xl p-2.5 text-sm">
+        </div>
+
+        <div>
+          <label for="signupEmail" class="block text-xs font-bold text-slate-700 mb-1.5">البريد الإلكتروني (Email) *</label>
+          <input type="email" id="signupEmail" required placeholder="name@example.com" dir="ltr"
+            class="w-full border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 rounded-xl p-2.5 text-sm text-left">
+        </div>
+
+        <div>
+          <label for="signupPassword" class="block text-xs font-bold text-slate-700 mb-1.5">كلمة المرور (Password) *</label>
+          <input type="password" id="signupPassword" required minlength="4" placeholder="••••••••" dir="ltr"
+            class="w-full border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 rounded-xl p-2.5 text-sm text-left">
+        </div>
+
+        <div>
+          <label for="signupConfirmPassword" class="block text-xs font-bold text-slate-700 mb-1.5">تأكيد كلمة المرور *</label>
+          <input type="password" id="signupConfirmPassword" required minlength="4" placeholder="••••••••" dir="ltr"
+            class="w-full border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 rounded-xl p-2.5 text-sm text-left">
+        </div>
+
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3 px-4 rounded-xl text-sm shadow transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-user-plus"></i> Sign Up وإنشاء / ربط الحساب
+        </button>
+
+        <div class="pt-1 text-center">
+          <button type="button" onclick="switchAuthMode('login')" class="text-xs font-bold text-slate-600 hover:text-slate-900 hover:underline transition">
+            Already have an account? Log in
+          </button>
+        </div>
+      </form>
+
+      <!-- رسالة الخطأ أو التنبيه -->
+      <p id="authErrorMsg" class="hidden text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-xl p-2.5"></p>
+
+      <!-- فاصل + زر Continue with Google -->
+      <div class="relative py-1">
+        <div class="absolute inset-0 flex items-center">
+          <div class="w-full border-t border-slate-200"></div>
+        </div>
+        <div class="relative flex justify-center text-[11px]">
+          <span class="bg-white px-3 text-slate-400 font-semibold">أو</span>
+        </div>
+      </div>
+
+      <button type="button" onclick="handleContinueWithGoogle()"
+        class="w-full bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold py-2.5 px-4 rounded-xl text-sm shadow-sm transition flex items-center justify-center gap-2.5">
+        <i class="fa-brands fa-google text-red-500 text-base"></i>
+        <span>Continue with Google</span>
+      </button>
+
+      <!-- نافذة إدخال بريد Google عند عدم ضبط Client ID -->
+      <div id="googleQuickPromptBox" class="hidden bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5 text-xs">
+        <p class="font-bold text-slate-700">أدخل بريد Google لربط الحساب بنفس البيانات:</p>
+        <input type="email" id="googleQuickEmail" placeholder="yourname@gmail.com" dir="ltr"
+          class="w-full border border-slate-300 bg-white rounded-xl p-2 text-xs text-left">
+        <div class="flex gap-2">
+          <button type="button" onclick="confirmQuickGoogleEmail()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-xl">
+            متابعة بـ Google
+          </button>
+          <button type="button" onclick="cancelQuickGoogleEmail()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-1.5 px-3 rounded-xl">
+            إلغاء
+          </button>
+        </div>
+      </div>
+
+      <div class="border-t border-slate-100 pt-3 text-center text-[11px] text-slate-400 leading-relaxed">
+        نفس بيانات الدخول تربط الحساب بنفس الهوية (`Account Key`) حتى من أجهزة مختلفة.
       </div>
     </div>
   </section>
@@ -112,13 +188,17 @@
         <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow"><i class="fa-solid fa-prescription-bottle-medical text-xl"></i></div>
         <div>
           <h1 class="font-extrabold text-base leading-tight" id="sidebarPharmName">صيدلية الجبلي</h1>
-          <p class="text-xs text-slate-400">نظام التأمين الطبي v4.0</p>
+          <p class="text-xs text-slate-400">نظام التأمين الطبي v4.1</p>
         </div>
       </div>
 
-      <div class="px-4 py-2.5 bg-slate-800/70 border-b border-slate-800 text-xs">
-        <div class="text-slate-400 text-[11px]">الحساب النشط:</div>
-        <div id="activeUserEmailBadge" class="font-bold text-blue-300 truncate mt-0.5" dir="ltr">-</div>
+      <div class="px-4 py-2.5 bg-slate-800/70 border-b border-slate-800 text-xs space-y-0.5">
+        <div class="flex items-center justify-between text-[11px] text-slate-400">
+          <span>الحساب النشط:</span>
+          <span id="activeAuthProviderBadge" class="text-emerald-400 font-bold">-</span>
+        </div>
+        <div id="activeUserEmailBadge" class="font-bold text-blue-300 truncate" dir="ltr">-</div>
+        <div id="activeAccountKeyBadge" class="text-[10px] text-slate-400 font-mono truncate" dir="ltr">-</div>
       </div>
 
       <nav class="flex-1 p-4 space-y-1.5 text-sm font-semibold">
@@ -460,6 +540,10 @@
             <label class="block text-xs font-bold mb-1">مفتاح Gemini API Key (افتراضي)</label>
             <input type="password" id="settingApiKey" class="w-full border rounded-xl p-2 text-sm">
           </div>
+          <div>
+            <label class="block text-xs font-bold mb-1">Google OAuth Client ID (اختياري لزر Continue with Google)</label>
+            <input type="text" id="settingGoogleClientId" placeholder="xxxxxxxxxxxx-xxxxxxxxxxxxxxxx.apps.googleusercontent.com" dir="ltr" class="w-full border rounded-xl p-2 text-sm text-left">
+          </div>
 
           <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition">حفظ الإعدادات</button>
         </form>
@@ -552,6 +636,7 @@
     const GEMINI_API_VERSION = 'v1beta';
     const ACTIVE_SESSION_KEY = 'pharmacy_active_session_v1';
     const ACCOUNTS_REGISTRY_KEY = 'pharmacy_accounts_v1';
+    const GOOGLE_CLIENT_ID_GLOBAL_KEY = 'pharmacy_global_google_client_id';
 
     if (window.pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -566,19 +651,27 @@
         landline: '',
         mobile: '',
         email: '',
-        apiKey: ''
+        apiKey: '',
+        googleClientId: localStorage.getItem(GOOGLE_CLIENT_ID_GLOBAL_KEY) || ''
       };
     }
 
-    function computeCredentialKey(email, password) {
-      const normalizedEmail = String(email || '').trim().toLowerCase();
-      const rawCombo = `${normalizedEmail}::${String(password || '')}`;
+    function fnv1aHash(str) {
       let hash = 2166136261;
-      for (let i = 0; i < rawCombo.length; i++) {
-        hash ^= rawCombo.charCodeAt(i);
+      for (let i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
         hash = Math.imul(hash, 16777619);
       }
-      return 'acc_' + (hash >>> 0).toString(16);
+      return (hash >>> 0).toString(16);
+    }
+
+    // ربط الحساب بنفس البيانات: نفس البريد/كلمة المرور أو نفس بريد Google ينتج دائماً نفس accountKey
+    function computeAccountKeyFromIdentity(provider, email, password = '') {
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      if (provider === 'google') {
+        return 'acc_google_' + fnv1aHash(`google::${normalizedEmail}`);
+      }
+      return 'acc_cred_' + fnv1aHash(`credentials::${normalizedEmail}::${String(password || '')}`);
     }
 
     function getInvoicesStorageKey(accountKey) {
@@ -591,6 +684,7 @@
 
     let currentAccountKey = null;
     let currentUserEmail = '';
+    let currentAuthProvider = 'credentials';
     let invoices = [];
     let settings = getDefaultSettings();
 
@@ -599,9 +693,214 @@
     let activeReportMonth = null;
     let isPrintTemplatePrepared = false;
 
-    function loadAccountData(accountKey, email) {
+    function switchAuthMode(mode) {
+      const loginForm = document.getElementById('loginForm');
+      const signupForm = document.getElementById('signupForm');
+      const titleEl = document.getElementById('authHeaderTitle');
+      const subtitleEl = document.getElementById('authHeaderSubtitle');
+      const errEl = document.getElementById('authErrorMsg');
+
+      errEl.classList.add('hidden');
+      document.getElementById('googleQuickPromptBox').classList.add('hidden');
+
+      if (mode === 'signup') {
+        loginForm.classList.add('hidden');
+        signupForm.classList.remove('hidden');
+        titleEl.innerText = 'Sign Up - إنشاء حساب جديد';
+        subtitleEl.innerText = 'أنشئ حساباً بالبريد الإلكتروني وكلمة المرور؛ نفس البيانات تربط الحساب بنفس الهوية عبر الأجهزة.';
+      } else {
+        signupForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
+        titleEl.innerText = 'تسجيل الدخول - صيدلية الجبلي';
+        subtitleEl.innerText = 'أدخل البريد الإلكتروني وكلمة المرور أو تابع عبر Google. نفس البيانات تربط الحساب بنفس الهوية حتى من أجهزة مختلفة.';
+      }
+    }
+
+    function completeAuthentication({ provider, email, password = '', displayName = '', remember = true }) {
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      const accountKey = computeAccountKeyFromIdentity(provider, normalizedEmail, password);
+
+      let accounts = {};
+      try {
+        accounts = JSON.parse(localStorage.getItem(ACCOUNTS_REGISTRY_KEY)) || {};
+      } catch (e) {
+        accounts = {};
+      }
+
+      const existing = accounts[accountKey] || {};
+      accounts[accountKey] = {
+        accountKey,
+        provider,
+        email: normalizedEmail,
+        displayName: displayName || existing.displayName || '',
+        passwordHash: provider === 'credentials' ? fnv1aHash(String(password || '')) : (existing.passwordHash || ''),
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem(ACCOUNTS_REGISTRY_KEY, JSON.stringify(accounts));
+
+      const sessionObj = {
+        accountKey,
+        email: normalizedEmail,
+        provider
+      };
+      sessionStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(sessionObj));
+      if (remember) {
+        localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(sessionObj));
+      } else {
+        localStorage.removeItem(ACTIVE_SESSION_KEY);
+      }
+
+      loadAccountData(accountKey, normalizedEmail, provider, displayName);
+      showMainApp();
+    }
+
+    function handleLoginSubmit() {
+      const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+      const password = document.getElementById('loginPassword').value;
+      const remember = document.getElementById('rememberSessionCheck').checked;
+      const errEl = document.getElementById('authErrorMsg');
+
+      if (!email || !password) {
+        errEl.innerText = 'يرجى إدخال البريد الإلكتروني وكلمة المرور.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      errEl.classList.add('hidden');
+      completeAuthentication({
+        provider: 'credentials',
+        email,
+        password,
+        remember
+      });
+    }
+
+    function handleSignupSubmit() {
+      const name = document.getElementById('signupName').value.trim();
+      const email = document.getElementById('signupEmail').value.trim().toLowerCase();
+      const password = document.getElementById('signupPassword').value;
+      const confirmPassword = document.getElementById('signupConfirmPassword').value;
+      const errEl = document.getElementById('authErrorMsg');
+
+      if (!email || !password) {
+        errEl.innerText = 'يرجى إدخال البريد الإلكتروني وكلمة المرور.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      if (password !== confirmPassword) {
+        errEl.innerText = 'كلمة المرور وتأكيد كلمة المرور غير متطابقين.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      errEl.classList.add('hidden');
+      completeAuthentication({
+        provider: 'credentials',
+        email,
+        password,
+        displayName: name,
+        remember: true
+      });
+    }
+
+    function parseJwtPayload(token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        return JSON.parse(jsonPayload);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function handleContinueWithGoogle() {
+      const errEl = document.getElementById('authErrorMsg');
+      errEl.classList.add('hidden');
+
+      const configuredClientId = (
+        document.getElementById('settingGoogleClientId')?.value ||
+        localStorage.getItem(GOOGLE_CLIENT_ID_GLOBAL_KEY) ||
+        ''
+      ).trim();
+
+      if (configuredClientId && window.google && google.accounts && google.accounts.oauth2) {
+        const tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: configuredClientId,
+          scope: 'openid email profile',
+          callback: async (tokenResponse) => {
+            if (!tokenResponse || !tokenResponse.access_token) {
+              errEl.innerText = 'تعذر إتمام تسجيل الدخول عبر Google.';
+              errEl.classList.remove('hidden');
+              return;
+            }
+            try {
+              const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+              });
+              const profile = await res.json();
+              if (profile && profile.email) {
+                completeAuthentication({
+                  provider: 'google',
+                  email: profile.email,
+                  displayName: profile.name || '',
+                  remember: true
+                });
+              } else {
+                openQuickGooglePrompt();
+              }
+            } catch (e) {
+              openQuickGooglePrompt();
+            }
+          }
+        });
+        tokenClient.requestAccessToken({ prompt: 'select_account' });
+        return;
+      }
+
+      openQuickGooglePrompt();
+    }
+
+    function openQuickGooglePrompt() {
+      const box = document.getElementById('googleQuickPromptBox');
+      const input = document.getElementById('googleQuickEmail');
+      box.classList.remove('hidden');
+      if (!input.value && currentUserEmail) {
+        input.value = currentUserEmail;
+      }
+      input.focus();
+    }
+
+    function cancelQuickGoogleEmail() {
+      document.getElementById('googleQuickPromptBox').classList.add('hidden');
+    }
+
+    function confirmQuickGoogleEmail() {
+      const errEl = document.getElementById('authErrorMsg');
+      const email = document.getElementById('googleQuickEmail').value.trim().toLowerCase();
+      if (!email || !email.includes('@')) {
+        errEl.innerText = 'يرجى إدخال بريد Google صحيح.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      errEl.classList.add('hidden');
+      document.getElementById('googleQuickPromptBox').classList.add('hidden');
+      completeAuthentication({
+        provider: 'google',
+        email,
+        remember: true
+      });
+    }
+
+    function loadAccountData(accountKey, email, provider = 'credentials', displayName = '') {
       currentAccountKey = accountKey;
       currentUserEmail = email;
+      currentAuthProvider = provider;
 
       const invRaw = localStorage.getItem(getInvoicesStorageKey(accountKey));
       if (invRaw) {
@@ -621,60 +920,20 @@
         localStorage.setItem(getSettingsStorageKey(accountKey), JSON.stringify(settings));
       }
 
-      if (!settings.email) {
-        settings.email = email;
+      if (!settings.email) settings.email = email;
+      if (displayName && settings.pharmacyName === 'صيدلية الجبلي') {
+        settings.pharmacyName = displayName;
       }
 
       document.getElementById('activeUserEmailBadge').innerText = email;
+      document.getElementById('activeAuthProviderBadge').innerText = provider === 'google' ? 'Google' : 'Email';
+      document.getElementById('activeAccountKeyBadge').innerText = `ID: ${accountKey}`;
+
       applySettingsToUI();
       toggleMedrightFields();
       populateReportMonths();
       renderDashboard();
       renderRecordsTable();
-    }
-
-    function handleLoginSubmit() {
-      const emailInput = document.getElementById('loginEmail');
-      const passInput = document.getElementById('loginPassword');
-      const errEl = document.getElementById('loginErrorMsg');
-      const remember = document.getElementById('rememberSessionCheck').checked;
-
-      const email = emailInput.value.trim().toLowerCase();
-      const password = passInput.value;
-
-      if (!email || !password) {
-        errEl.innerText = 'يرجى إدخال البريد الإلكتروني وكلمة المرور.';
-        errEl.classList.remove('hidden');
-        return;
-      }
-
-      errEl.classList.add('hidden');
-      const accountKey = computeCredentialKey(email, password);
-
-      let accounts = {};
-      try {
-        accounts = JSON.parse(localStorage.getItem(ACCOUNTS_REGISTRY_KEY)) || {};
-      } catch (e) {
-        accounts = {};
-      }
-
-      accounts[accountKey] = {
-        accountKey,
-        email,
-        lastLoginAt: new Date().toISOString()
-      };
-      localStorage.setItem(ACCOUNTS_REGISTRY_KEY, JSON.stringify(accounts));
-
-      const sessionObj = { accountKey, email };
-      sessionStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(sessionObj));
-      if (remember) {
-        localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(sessionObj));
-      } else {
-        localStorage.removeItem(ACTIVE_SESSION_KEY);
-      }
-
-      loadAccountData(accountKey, email);
-      showMainApp();
     }
 
     function logoutUser() {
@@ -684,11 +943,12 @@
       currentUserEmail = '';
       document.getElementById('loginPassword').value = '';
       document.getElementById('appShell').classList.add('hidden');
-      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('authScreen').classList.remove('hidden');
+      switchAuthMode('login');
     }
 
     function showMainApp() {
-      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('authScreen').classList.add('hidden');
       document.getElementById('appShell').classList.remove('hidden');
       switchTab('home');
     }
@@ -706,10 +966,10 @@
 
       if (savedSession && savedSession.accountKey && savedSession.email) {
         document.getElementById('loginEmail').value = savedSession.email;
-        loadAccountData(savedSession.accountKey, savedSession.email);
+        loadAccountData(savedSession.accountKey, savedSession.email, savedSession.provider || 'credentials');
         showMainApp();
       } else {
-        document.getElementById('loginScreen').classList.remove('hidden');
+        document.getElementById('authScreen').classList.remove('hidden');
         document.getElementById('appShell').classList.add('hidden');
       }
     });
@@ -723,6 +983,7 @@
       document.getElementById('settingMobile').value = settings.mobile || '';
       document.getElementById('settingEmail').value = settings.email || currentUserEmail || '';
       document.getElementById('settingApiKey').value = settings.apiKey || '';
+      document.getElementById('settingGoogleClientId').value = settings.googleClientId || localStorage.getItem(GOOGLE_CLIENT_ID_GLOBAL_KEY) || '';
       if (settings.apiKey) document.getElementById('apiKeyInput').value = settings.apiKey;
 
       document.getElementById('sidebarPharmName').innerText = settings.pharmacyName || 'صيدلية الجبلي';
@@ -1504,6 +1765,7 @@
     }
 
     function saveSettings() {
+      const googleClientId = document.getElementById('settingGoogleClientId').value.trim();
       settings.pharmacyName = document.getElementById('settingPharmacyName').value;
       settings.address = document.getElementById('settingAddress').value;
       settings.commReg = document.getElementById('settingCommReg').value;
@@ -1512,6 +1774,13 @@
       settings.mobile = document.getElementById('settingMobile').value;
       settings.email = document.getElementById('settingEmail').value;
       settings.apiKey = document.getElementById('settingApiKey').value;
+      settings.googleClientId = googleClientId;
+
+      if (googleClientId) {
+        localStorage.setItem(GOOGLE_CLIENT_ID_GLOBAL_KEY, googleClientId);
+      } else {
+        localStorage.removeItem(GOOGLE_CLIENT_ID_GLOBAL_KEY);
+      }
 
       if (currentAccountKey) {
         localStorage.setItem(getSettingsStorageKey(currentAccountKey), JSON.stringify(settings));
